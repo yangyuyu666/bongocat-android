@@ -9,6 +9,9 @@ debug.keystore
 *.jks
 *.p12
 *.pfx
+.signing/
+signing.properties
+keystore.properties
 .env
 .env.*
 node_modules/

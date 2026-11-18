@@ -2,9 +2,9 @@
 
 在原 BongoCat 形象上重做头、身体、四爪和尾巴。保留白色圆胖轮廓、小黑眼、W 嘴、粉色细节及原有功能。工程直接生成 Rive 原生模型，不需要拖拽导入或 Computer Use。
 
-包名 `com.yuyu.bongocat`，版本 **3.15 / 18**，minSdk **26**，targetSdk **34**。继续使用原有签名、首选项和位置数据。应用只播放本地资源，没有增加 INTERNET 权限。
+包名 `com.yuyu.bongocat`，版本 **3.16 / 19**，minSdk **26**，targetSdk **34**。继续使用原有签名身份、首选项和位置数据。应用只播放本地资源，没有增加 INTERNET 权限。
 
-**[下载最新安装包](https://github.com/yangyuyu666/bongocat-android/releases/latest)** · [3.15 更新记录](FIXES.md) · [真机验收项目](DEVICE_TESTS.md)
+**[下载最新安装包](https://github.com/yangyuyu666/bongocat-android/releases/latest)** · [3.16 更新记录](FIXES.md) · [安装包验签](security/README.md) · [真机验收项目](DEVICE_TESTS.md)
 
 ## 动作预览
 
@@ -25,6 +25,14 @@
 | 外观 | 8 种猫色 × 6 种配饰；换色覆盖头、身体、四爪及尾巴，配饰保持自己的颜色。 |
 | 大小、透明度 | 120～300dp、10～100%；预览及浮窗各有独立的 Rive 实例。 |
 | 浮窗 | 拖动、显示/收起、前台通知、权限检查、设置迁移与位置保存不变。 |
+
+## v3.16：安装包来源与完整性校验（2026-11-18）
+
+正式 APK 启用 v2 + v3 签名，沿用原有证书身份以兼容旧版覆盖更新。启动时先检查当前安装签名，来源不匹配、签名缺失或查询失败会终止应用初始化。发布构建使用本机私密配置，证书不匹配时拒绝打包。
+
+新增独立的 `tools/verify-apk.ps1` 与公开签名证书，供安装前验证 APK 签名、内容完整性、包名及正式包标记。签名身份以固定 SHA-256 指纹为准；应用自检是补充措施，不能替代独立验签。详情及本地签名配置见 [签名说明](security/README.md)。猫咪形象、动画与全部原有工具功能不变。
+
+75 项 Debug 回归及 21 项 Release 来源校验回归通过。独立检查确认内容篡改、其他密钥重签和调试包被拒绝，缺少发布配置或使用错误证书也会阻止构建。Debug / Release 的 Lint 都为 0 错误、51 警告；未进行手机实测。
 
 ## v3.15：按真实母鸡蹲调整体态（2026-11-18）
 
@@ -176,14 +184,14 @@ if (-not (Test-Path -LiteralPath debug.keystore)) {
 $env:JAVA_HOME = 'D:\tools\jdk21'
 $env:GRADLE_USER_HOME = Join-Path (Get-Location) '.gradle-user-home'
 $env:ANDROID_USER_HOME = Join-Path (Get-Location) '.tools\android-user'
-./gradlew.bat testDebugUnitTest assembleRelease assembleDebugAndroidTest lintDebug
+./gradlew.bat testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug
 ```
 
 模型测试直接调用 Rive 引擎，覆盖 9 个手动动作、7 个随机动作、睡眠、唤醒、趴爬准备/结束和轮换；移动测试覆盖准备期、边界、取消及终点保存。Robolectric 检查设置迁移、外观组合和数值范围。
 
 没有 Android 设备连接时只能编译仪器测试，不能声称已验证真实浮窗、触摸、GPU 透明度和覆盖安装。设备验收项目见 `DEVICE_TESTS.md`。
 
-Release APK 在 `app/build/outputs/apk/release/app-release.apk`。debug/release 都使用根目录既有 `debug.keystore`，证书 SHA-256：
+Release 构建需先配置 [本地发布密钥](security/README.md)，再执行 `./gradlew.bat assembleRelease`。APK 在 `app/build/outputs/apk/release/app-release.apk`。Debug 使用本地 `debug.keystore`，Release 使用 `.signing/release.p12`；维护者发布证书的 SHA-256 保持为：
 
 ```text
 f89eb1342441f6dd6a62de79f1a54cc527ce3838c9f26c45f28084d8dc501eb4
