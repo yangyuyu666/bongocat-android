@@ -1,0 +1,13 @@
+* text=auto eol=lf
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.png binary
+*.gif binary
+*.riv binary
+*.rev binary
+*.jar binary
+
+# 保留正式 Rive 导出的原始字节，避免换行转换导致哈希校验失败。
+rive/scene.rml -text linguist-generated=true
+rive/rive.yaml -text

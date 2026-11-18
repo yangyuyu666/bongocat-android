@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1024dp" android:height="1015dp"
+    android:viewportWidth="1024" android:viewportHeight="1015">
+    <!-- 帽冠沿头顶倾斜，弧形帽檐压住两耳之间的轮廓。 -->
+    <path android:fillColor="#3F435D" android:strokeColor="#292B3D" android:strokeWidth="9" android:strokeLineJoin="round"
+        android:pathData="M445,18 Q542,3 641,44 L623,117 Q533,125 447,88 Z" />
+    <path android:fillColor="#606784"
+        android:pathData="M462,26 Q477,23 489,24 L480,86 L462,81 Z" />
+    <path android:fillColor="#D96B86" android:strokeColor="#292B3D" android:strokeWidth="6"
+        android:pathData="M448,66 Q537,77 629,94 L623,118 Q534,114 447,91 Z" />
+    <path android:fillColor="#3F435D" android:strokeColor="#292B3D" android:strokeWidth="9"
+        android:pathData="M401,76 C468,72 596,89 674,122 Q689,133 672,141 C587,144 458,112 402,94 Q388,86 401,76 Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#777F9F" android:strokeWidth="5" android:strokeLineCap="round"
+        android:pathData="M423,85 Q543,94 650,126" />
+</vector>

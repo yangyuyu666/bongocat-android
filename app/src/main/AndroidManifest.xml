@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:name=".PetApplication"
+        android:hardwareAccelerated="true"
+        android:label="BongoCat 安卓版"
+        android:icon="@drawable/cat_alone"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="BongoCat 安卓版">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ActionsActivity"
+            android:exported="false"
+            android:label="动作" />
+
+        <activity android:name=".PetToolsActivity" android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.Dialog.NoActionBar"
+            android:windowSoftInputMode="adjustResize" android:label="猫咪工具箱" />
+
+        <activity android:name=".PetToolsPopupActivity" android:exported="false"
+            android:launchMode="singleTask" android:taskAffinity=""
+            android:excludeFromRecents="true" android:theme="@style/PetToolsPopupTheme"
+            android:windowSoftInputMode="adjustResize" android:label="猫咪工具箱" />
+
+        <receiver android:name=".PetTimerReceiver" android:exported="false" />
+        <receiver android:name=".PetBootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".FloatingPetService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started floating cat companion displayed over other apps until the user hides it" />
+        </service>
+
+    </application>
+</manifest>

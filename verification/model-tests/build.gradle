@@ -1,0 +1,25 @@
+plugins { id 'java' }
+
+repositories { mavenCentral() }
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'com.google.code.gson:gson:2.13.2'
+}
+
+sourceSets {
+    main.java {
+        srcDir '../../app/src/main/java'
+        include '**/CrawlMotion.java', '**/RiveMovement.java'
+    }
+    test.java {
+        srcDir '../../app/src/test/java'
+        include '**/RiveMovementTest.java', '**/RiveContractTest.java', '**/RiveStateMachineTest.java', '**/RiveContinuityTest.java'
+    }
+}
+
+test {
+    workingDir file('../..')
+    inputs.files('../../rive/scene.rml', '../../rive/rive.yaml')
+    testLogging { events 'passed', 'skipped', 'failed' }
+}

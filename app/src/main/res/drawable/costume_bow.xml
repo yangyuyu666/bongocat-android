@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1024dp" android:height="1015dp"
+    android:viewportWidth="1024" android:viewportHeight="1015">
+    <!-- 两侧翅膀贴住左耳根，结尾沿头部向下垂。 -->
+    <path android:fillColor="#CF476D" android:strokeColor="#51313E" android:strokeWidth="8" android:strokeLineJoin="round"
+        android:pathData="M300,142 L281,220 L317,208 L340,230 L348,145 Z M326,143 L359,222 L378,197 L409,201 L359,128 Z" />
+    <path android:fillColor="#F778A0" android:strokeColor="#51313E" android:strokeWidth="9" android:strokeLineJoin="round"
+        android:pathData="M314,123 C280,77 235,64 218,82 C206,98 208,157 224,174 C245,190 292,157 314,143 Z M336,121 C372,77 414,68 429,88 C441,109 432,163 417,178 C397,193 356,158 336,143 Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#D04B75" android:strokeWidth="7" android:strokeLineCap="round"
+        android:pathData="M239,109 Q272,115 301,134 M406,113 Q372,118 349,135" />
+    <path android:fillColor="#FFB3C9" android:strokeColor="#51313E" android:strokeWidth="8"
+        android:pathData="M310,113 Q327,106 341,118 L346,148 Q328,162 310,150 Q303,133 310,113 Z" />
+</vector>

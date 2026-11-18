@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1024dp" android:height="1015dp"
+    android:viewportWidth="1024" android:viewportHeight="1015">
+    <!-- 围巾从两只前爪之间绕过脸下方，右侧打结并垂下尾部。 -->
+    <path android:fillColor="#D96056" android:strokeColor="#633B39" android:strokeWidth="9" android:strokeLineJoin="round"
+        android:pathData="M486,460 Q528,454 550,480 L568,624 L541,616 L526,638 L504,608 Z" />
+    <path android:fillColor="#F18168" android:strokeColor="#633B39" android:strokeWidth="9" android:strokeLineJoin="round"
+        android:pathData="M178,381 Q373,448 587,393 L600,464 Q397,541 176,459 Q158,420 178,381 Z" />
+    <path android:fillColor="#FFBE8A"
+        android:pathData="M175,399 Q387,472 591,412 L594,428 Q388,492 173,416 Z M511,558 L559,549 L561,563 L513,572 Z M517,589 L563,581 L565,595 L520,603 Z" />
+    <path android:fillColor="#E76C5D" android:strokeColor="#633B39" android:strokeWidth="8"
+        android:pathData="M503,422 Q528,410 549,429 L552,464 Q527,484 503,466 Q494,443 503,422 Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#AE4F49" android:strokeWidth="6" android:strokeLineCap="round"
+        android:pathData="M520,476 L538,535 M514,435 Q526,446 541,440" />
+</vector>

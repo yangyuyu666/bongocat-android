@@ -1,0 +1,3 @@
+name: bongocat
+logs:
+  build: build/build.log

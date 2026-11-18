@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1024dp" android:height="1015dp"
+    android:viewportWidth="1024" android:viewportHeight="1015">
+    <!-- 三个尖齿和弧形底座沿头顶向右下倾斜。 -->
+    <path android:fillColor="#FFC94F" android:strokeColor="#79512C" android:strokeWidth="8" android:strokeLineJoin="round"
+        android:pathData="M423,29 L473,61 L531,10 L565,74 L633,52 L609,123 Q516,111 435,94 Z" />
+    <path android:fillColor="#FFE58B"
+        android:pathData="M437,47 L476,74 L527,30 L547,80 L456,77 Z" />
+    <path android:fillColor="#ECAF39" android:strokeColor="#79512C" android:strokeWidth="8"
+        android:pathData="M435,82 Q522,92 613,111 L610,129 Q515,115 435,101 Z" />
+    <path android:fillColor="#F16C86" android:strokeColor="#79512C" android:strokeWidth="5"
+        android:pathData="M528,58 L541,76 L523,90 L511,72 Z" />
+    <path android:fillColor="#68C9C0" android:strokeColor="#79512C" android:strokeWidth="4"
+        android:pathData="M463,69 L473,78 L462,87 L453,77 Z M587,86 L597,96 L585,104 L577,94 Z" />
+</vector>

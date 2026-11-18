@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1024dp" android:height="1015dp"
+    android:viewportWidth="1024" android:viewportHeight="1015">
+    <!-- 叶片顺着左耳根铺开，五片花瓣围住黄色花蕊。 -->
+    <path android:fillColor="#70B68B" android:strokeColor="#365A45" android:strokeWidth="8" android:strokeLineJoin="round"
+        android:pathData="M292,158 Q334,128 381,158 Q362,205 307,187 Z M272,166 Q227,154 213,205 Q253,229 288,190 Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#46805D" android:strokeWidth="5" android:strokeLineCap="round"
+        android:pathData="M306,178 L358,164 M276,184 L232,202" />
+    <path android:fillColor="#FFA1BC" android:strokeColor="#754255" android:strokeWidth="8" android:strokeLineJoin="round"
+        android:pathData="M277,111 C235,59 302,32 316,87 C354,49 394,105 342,126 C400,148 361,205 320,174 C315,230 248,216 264,164 C212,181 195,120 250,117 Q263,111 277,111 Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#E7789E" android:strokeWidth="6" android:strokeLineCap="round"
+        android:pathData="M293,87 L295,112 M339,106 L319,122 M342,162 L317,147 M281,183 L289,155 M242,140 L273,134" />
+    <path android:fillColor="#FFD16B" android:strokeColor="#754255" android:strokeWidth="7"
+        android:pathData="M320,135 C320,165 274,165 274,135 C274,105 320,105 320,135 Z" />
+    <path android:fillColor="#FFF0AE"
+        android:pathData="M293,123 C293,129 283,129 283,123 C283,117 293,117 293,123 Z" />
+</vector>
