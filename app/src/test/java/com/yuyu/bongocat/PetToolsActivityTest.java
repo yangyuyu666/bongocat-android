@@ -1,7 +1,10 @@
 package com.yuyu.bongocat;
 
 import android.app.Application;
+import android.Manifest;
+import android.app.NotificationManager;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -15,7 +18,11 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowSettings;
+import org.robolectric.shadows.ShadowSystemClock;
+import java.time.Duration;
 import static org.junit.Assert.*;
+import static org.robolectric.Shadows.shadowOf;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28, application = Application.class)
@@ -46,11 +53,43 @@ public class PetToolsActivityTest {
             assertEquals(PetToolsStore.IDLE, store.status()); assertNotNull(edit(root(activity)).getError());
             edit(root(activity)).setText("15"); find(root(activity), "开始专注").performClick();
             assertEquals(900_000, store.duration()); assertEquals(PetToolsStore.RUNNING, store.status());
+            assertTrue(activity.isFinishing()); assertFalse(store.hasSign());
+        }
+        try (ActivityController<PetToolsActivity> controller = open("timer")) {
+            PetToolsActivity activity = controller.get(); PetToolsStore store = new PetToolsStore(activity);
             find(root(activity), "暂停").performClick(); assertEquals(PetToolsStore.PAUSED, store.status());
             find(root(activity), "继续计时").performClick(); assertEquals(PetToolsStore.RUNNING, store.status());
+            assertTrue(activity.isFinishing());
+        }
+        try (ActivityController<PetToolsActivity> controller = open("timer")) {
+            PetToolsActivity activity = controller.get(); PetToolsStore store = new PetToolsStore(activity);
             find(root(activity), "结束本次计时").performClick(); assertEquals(PetToolsStore.IDLE, store.status());
         }
     }
+    @Test @Config(sdk = 34) public void popupClosesAfterPermissionAndAlarmRemindsWithBoard() {
+        Application app = RuntimeEnvironment.getApplication();
+        shadowOf(app).denyPermissions(Manifest.permission.POST_NOTIFICATIONS);
+        ShadowSettings.setCanDrawOverlays(true);
+        PetToolsStore store = new PetToolsStore(app);
+        try (ActivityController<PetToolsPopupActivity> controller = Robolectric.buildActivity(PetToolsPopupActivity.class,
+                PetToolsPopupActivity.intent(app, "timer")).setup().visible()) {
+            PetToolsPopupActivity popup = controller.get();
+            edit(root(popup)).setText("1");
+            find(root(popup), "开始专注").performClick();
+            assertEquals(PetToolsStore.RUNNING, store.status());
+            assertFalse(store.hasSign());
+            assertTrue(new PetSettings(app).isVisible());
+            shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS);
+            popup.onRequestPermissionsResult(30, new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    new int[]{PackageManager.PERMISSION_GRANTED});
+            assertTrue(popup.isFinishing());
+        }
+        ShadowSystemClock.advanceBy(Duration.ofMinutes(1));
+        new PetTimerReceiver().onReceive(app, new Intent(PetReminder.ALARM).putExtra("token", store.token()));
+        assertTrue(store.hasSign());
+        assertNotNull(shadowOf(app.getSystemService(NotificationManager.class)).getNotification(PetReminder.NOTIFICATION));
+    }
+
     @Test public void noteDraftSurvivesRecreationAndSaveIsPersistent() {
         try (ActivityController<PetToolsActivity> controller = open("note")) {
             edit(root(controller.get())).setText("记得取快递\n晚上给花浇水");

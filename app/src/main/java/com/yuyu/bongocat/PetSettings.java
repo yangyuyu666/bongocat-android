@@ -47,6 +47,8 @@ public class PetSettings {
     public void setSizeDp(int dp) { prefs.edit().putInt("size_dp", clamp(dp, 120, 300)).apply(); }
     public int getOpacity() { return clamp(prefs.getInt("opacity", 100), 10, 100); }
     public void setOpacity(int pct) { prefs.edit().putInt("opacity", clamp(pct, 10, 100)).apply(); }
+    public boolean isTouchThrough() { return prefs.getBoolean("touch_through", false); }
+    public void setTouchThrough(boolean enabled) { prefs.edit().putBoolean("touch_through", enabled).apply(); }
     /** 拖动结束后保存窗口坐标，更新外观时不改坐标。 */
     public int getPosX() { return prefs.getInt("pos_x", 100); }
     public int getPosY() { return prefs.getInt("pos_y", 400); }

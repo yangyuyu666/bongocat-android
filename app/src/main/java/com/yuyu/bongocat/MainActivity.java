@@ -11,6 +11,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,6 +39,12 @@ public class MainActivity extends Activity {
         buildCostumeRow();
         buildColorRow();
         buildSliders();
+        Switch touchThrough = findViewById(R.id.touch_through);
+        touchThrough.setChecked(settings.isTouchThrough());
+        touchThrough.setOnCheckedChangeListener((button, enabled) -> {
+            settings.setTouchThrough(enabled);
+            refresh();
+        });
         refreshButtonStates();
         findViewById(R.id.btn_tools).setOnClickListener(view -> startActivity(new Intent(this, PetToolsActivity.class)));
 

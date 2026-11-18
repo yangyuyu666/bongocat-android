@@ -13,6 +13,7 @@ import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.hardware.input.InputManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -249,8 +250,29 @@ public class FloatingPetService extends Service {
         params.y = Math.max(0, Math.min(Math.max(0, screen.y - params.height), params.y));
     }
 
+    static void applyTouchMode(Context context, WindowManager.LayoutParams window, boolean through, float opacity) {
+        window.alpha = opacity;
+        if (through) {
+            window.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+            // Android 12 起按窗口遮挡率决定能否穿透到其他应用。
+            if (Build.VERSION.SDK_INT >= 31)
+                window.alpha = Math.min(opacity, context.getSystemService(InputManager.class).getMaximumObscuringOpacityForTouch());
+        } else {
+            window.flags &= ~WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+        }
+    }
+
     private void applySettings() {
         catView.applySettings(settings);
+        boolean through = settings.isTouchThrough();
+        applyTouchMode(this, params, through, catView.getAlpha());
+        catView.setAlpha(1f);
+        if (through && touching) {
+            handler.removeCallbacks(longPress);
+            touching = false;
+            catView.endTouch(false);
+            if (edge.active && !edgeOverride) edge.pauseFor(SystemClock.uptimeMillis() - touchStarted);
+        }
         Point screen = screenSize();
         int requestedSize = Math.round(settings.getSizeDp() * getResources().getDisplayMetrics().density);
         int base = Math.max(1, Math.min(requestedSize, Math.min(screen.x, screen.y)));

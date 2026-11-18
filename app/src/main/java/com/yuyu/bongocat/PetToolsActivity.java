@@ -37,7 +37,7 @@ public class PetToolsActivity extends Activity {
     private EditText noteInput, minutesInput, taskInput;
     private TextView clock;
     private int lastStatus;
-    private boolean permissionRequested;
+    private boolean closeAfterNotificationRequest;
     private final Runnable tick = new Runnable() {
         @Override public void run() {
             PetReminder.checkDue(PetToolsActivity.this, store.token());
@@ -54,7 +54,7 @@ public class PetToolsActivity extends Activity {
         if (page == null) page = "menu";
         if (saved != null) {
             noteDraft = saved.getString("note"); minutesDraft = saved.getString("minutes"); taskDraft = saved.getString("task");
-            permissionRequested = saved.getBoolean("requested");
+            closeAfterNotificationRequest = saved.getBoolean("close_after_notification");
         }
         setFinishOnTouchOutside(true);
         getWindow().setBackgroundDrawableResource(android.R.color.transparent);
@@ -166,8 +166,13 @@ public class PetToolsActivity extends Activity {
             clock.setGravity(Gravity.CENTER); clock.setTypeface(Typeface.MONOSPACE, Typeface.BOLD); body.addView(clock);
             button(status == PetToolsStore.RUNNING ? "暂停" : "继续计时", () -> {
                 PetReminder.checkDue(this, store.token());
-                if (store.status() == PetToolsStore.RUNNING) store.pause(); else if (store.status() == PetToolsStore.PAUSED) store.resume();
-                PetReminder.schedule(this); PetReminder.changed(this); render();
+                if (store.status() == PetToolsStore.PAUSED) {
+                    store.resume();
+                    runTimerInBackground();
+                } else {
+                    store.pause();
+                    PetReminder.schedule(this); PetReminder.changed(this); render();
+                }
             }, true);
             button("结束本次计时", () -> { store.cancel(); PetReminder.schedule(this); PetReminder.changed(this); render(); }, false);
         } else if (status == PetToolsStore.DONE) {
@@ -204,8 +209,26 @@ public class PetToolsActivity extends Activity {
 
     private void startTimer(int minutes) {
         PetReminder.acknowledge(this);
-        store.start(minutes); PetReminder.schedule(this); PetReminder.changed(this); render();
-        if (!permissionRequested && !PetReminder.notificationsAllowed(this)) { permissionRequested = true; requestNotifications(); }
+        store.start(minutes);
+        runTimerInBackground();
+    }
+
+    private void runTimerInBackground() {
+        PetReminder.schedule(this);
+        PetReminder.changed(this);
+        PetSettings settings = new PetSettings(this);
+        if (Settings.canDrawOverlays(this) && !settings.isVisible()) {
+            settings.setVisible(true);
+            startForegroundService(new Intent(this, FloatingPetService.class));
+        }
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            closeAfterNotificationRequest = true;
+            requestNotifications();
+        } else {
+            if (!PetReminder.notificationsAllowed(this))
+                Toast.makeText(this, "系统通知已关闭，可在番茄钟中开启", Toast.LENGTH_SHORT).show();
+            finish();
+        }
     }
 
     private void requestNotifications() {
@@ -266,6 +289,11 @@ public class PetToolsActivity extends Activity {
     @Override public void onBackPressed() { if ("menu".equals(page)) super.onBackPressed(); else go("menu"); }
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == 30 && closeAfterNotificationRequest) {
+            closeAfterNotificationRequest = false;
+            finish();
+            return;
+        }
         captureDrafts(); render();
     }
     @Override protected void onResume() {
@@ -276,7 +304,8 @@ public class PetToolsActivity extends Activity {
     @Override protected void onPause() { handler.removeCallbacks(tick); super.onPause(); }
     @Override protected void onSaveInstanceState(Bundle state) {
         captureDrafts(); state.putString("page", page); state.putString("note", noteDraft);
-        state.putString("minutes", minutesDraft); state.putString("task", taskDraft); state.putBoolean("requested", permissionRequested);
+        state.putString("minutes", minutesDraft); state.putString("task", taskDraft);
+        state.putBoolean("close_after_notification", closeAfterNotificationRequest);
         super.onSaveInstanceState(state);
     }
 }

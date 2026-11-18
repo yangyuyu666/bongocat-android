@@ -95,6 +95,13 @@
         android:max="90"
         android:progress="90" />
 
+    <Switch
+        android:id="@+id/touch_through"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:text="触摸穿透" />
+
     <Button android:id="@+id/btn_weather" android:layout_width="match_parent"
         android:layout_height="wrap_content" android:text="天气窗台" />
     <Button android:id="@+id/btn_tools" android:layout_width="match_parent"

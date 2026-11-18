@@ -3,6 +3,9 @@ package com.yuyu.bongocat;
 import android.app.Application;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.hardware.input.InputManager;
+import android.os.Build;
+import android.view.WindowManager;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -61,6 +64,26 @@ public class PetSettingsTest {
                 assertEquals(291, reopened.getPosY());
             }
         }
+    }
+
+    @Test @Config(sdk = {28, 34}) public void touchThroughPersistsAndRestoresInteractiveWindow() {
+        PetSettings settings = new PetSettings(context);
+        WindowManager.LayoutParams window = new WindowManager.LayoutParams();
+        int original = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+        window.flags = original;
+        assertFalse(settings.isTouchThrough());
+        settings.setTouchThrough(true);
+        float limit = Build.VERSION.SDK_INT >= 31
+                ? context.getSystemService(InputManager.class).getMaximumObscuringOpacityForTouch() : 1f;
+        for (float opacity : new float[]{1f, .35f}) {
+            FloatingPetService.applyTouchMode(context, window, new PetSettings(context).isTouchThrough(), opacity);
+            assertEquals(original | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE, window.flags);
+            assertEquals(Math.min(limit, opacity), window.alpha, .0001f);
+        }
+        settings.setTouchThrough(false);
+        FloatingPetService.applyTouchMode(context, window, new PetSettings(context).isTouchThrough(), 1f);
+        assertEquals(original, window.flags);
+        assertEquals(1f, window.alpha, .0001f);
     }
 
     @Test public void currentVersionDoesNotRemigrateCostume() {

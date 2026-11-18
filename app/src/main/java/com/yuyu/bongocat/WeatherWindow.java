@@ -3,6 +3,8 @@ package com.yuyu.bongocat;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.*;
+import android.hardware.input.InputManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -80,24 +82,34 @@ final class WeatherWindow {
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
                 PixelFormat.TRANSLUCENT);
         window.gravity = Gravity.TOP | Gravity.LEFT;
-        window.alpha = .8f;
-        place(cat);
+        window.alpha = Build.VERSION.SDK_INT >= 31
+                ? Math.min(.8f, context.getSystemService(InputManager.class).getMaximumObscuringOpacityForTouch()) : .8f;
+        if (!place(cat)) { cloud = null; return false; }
         try { manager.addView(cloud, window); }
         catch (RuntimeException error) { cloud = null; return false; }
         handler.postDelayed(dismiss, 9000);
         return true;
     }
 
-    private void place(WindowManager.LayoutParams cat) {
+    private boolean place(WindowManager.LayoutParams cat) {
         Point screen = new Point();
         manager.getDefaultDisplay().getSize(screen);
         window.x = Math.max(0, Math.min(screen.x-window.width, cat.x+(cat.width-window.width)/2));
         window.y = Math.max(0, cat.y-window.height + cat.height/8);
+        if ((cat.flags & WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE) != 0) {
+            // 穿透时把云朵放在猫窗外，避免两个窗口的遮挡率叠加。
+            if (cat.y >= window.height) window.y = cat.y - window.height;
+            else if (cat.y + cat.height + window.height <= screen.y) window.y = cat.y + cat.height;
+            else if (cat.x >= window.width) window.x = cat.x - window.width;
+            else if (cat.x + cat.width + window.width <= screen.x) window.x = cat.x + cat.width;
+            else return false;
+        }
+        return true;
     }
 
     void follow(WindowManager.LayoutParams cat) {
         if (cloud == null) return;
-        place(cat);
+        if (!place(cat)) { hide(); return; }
         try { manager.updateViewLayout(cloud, window); }
         catch (RuntimeException error) { hide(); }
     }
