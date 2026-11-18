@@ -12,7 +12,8 @@ const baseBody='M -80 -55 C -102 -33 -112 9 -106 52 C -100 88 -78 102 -48 102 L 
 const baseTail='M 78 70 C 101 88 139 77 159 49 C 176 27 179 -3 169 -18 C 162 -29 146 -24 147 -12 C 152 7 142 27 126 38 C 112 48 93 46 81 45 C 70 47 70 62 78 70 Z';
 const backTail='M 98 64 C 110 79 127 90 145 90 C 162 92 179 84 183 70 C 190 49 175 46 171 58 C 169 66 162 72 151 71 C 135 70 122 51 111 48 C 98 44 90 60 98 64 Z';
 const proneTail='M 108 76 C 129 90 153 79 168 59 C 183 39 184 16 176 7 C 167 -2 158 7 162 18 C 166 33 153 51 139 56 C 127 60 119 56 112 55 C 100 55 99 70 108 76 Z';
-const loafTail='M 70 83 C 85 104 118 110 131 92 C 143 76 136 59 128 55 C 120 49 113 55 116 63 C 121 74 117 84 106 85 C 93 79 81 80 75 80 C 68 81 65 80 70 83 Z';
+const loafTail='M 72 83 C 90 98 125 101 142 88 C 153 80 148 69 139 68 C 128 67 125 77 114 79 C 103 83 95 80 88 77 C 82 74 76 73 72 75 C 67 77 67 80 72 83 Z';
+const loafBody='M -68 -9 C -84 13 -86 53 -82 77 C -79 96 -60 104 -39 104 L 45 104 C 78 104 104 94 109 72 C 118 33 104 4 75 -9 C 39 -22 -35 -21 -68 -9 Z';
 const baseArm='M -80 -28 C -91 -10 -86 22 -71 34 C -58 43 -39 31 -38 17 C -36 9 -51 -19 -50 -23';
 
 function oval(cx,cy,rx,ry,rotation=0) {
@@ -94,9 +95,9 @@ export const pronePose={
   hind:[[48,58,51,74,46,81],[94,57,100,76,91,89]],
 };
 export const loafPose={
-  head:[0,-18,.90,0],body:[0,49,108,54,0],back:0,low:0,art:1,loaf:1,
-  fore:[[-57,12,-54,38,-43,55],[57,12,54,38,43,55]],
-  hind:[[-59,55,-54,63,-43,69],[59,55,54,63,43,69]],
+  head:[0,-54,.78,0],body:[0,39,94,65,0],back:0,low:0,art:1,loaf:1,
+  fore:[[-50,10,-55,54,-29,76],[50,10,55,54,29,76]],
+  hind:[[-59,45,-54,61,-43,69],[59,45,68,61,60,69]],
 };
 export const sidePose={
   head:[-67,26,.73,-1.12],body:[27,48,89,48,-.35],back:.45,low:0,art:1,
@@ -125,7 +126,13 @@ function buildPads(name,paw,angle,amount,radius=18) {
 export function drawPose(pose,label='Frame') {
   const [cx,cy,rx,ry,angle]=pose.body;
   const standing=1-pose.art;
-  const body=morph(baseBody,oval(cx,cy,rx,ry,angle),1-standing);
+  let body=morph(baseBody,oval(cx,cy,rx,ry,angle),1-standing);
+  if(pose.loaf){
+    // 胸口竖起、后背向右延伸；呼吸只拉高躯干，底边仍贴地。
+    let axis=0;
+    const chest=loafBody.replace(/-?\d+(?:\.\d+)?/g,value=>String(axis++%2?(Number(value)-39)*ry/65+cy:Number(value)));
+    body=morph(body,chest,pose.loaf);
+  }
   const limbs=[],limbPaths=[],details=[];
   for(const type of ['fore','hind'])for(let i=0;i<2;i++){
     const v=pose[type][i],root=v.slice(0,2),elbow=v.slice(2,4),paw=v.slice(4,6),dir=unit(elbow,paw);
@@ -167,9 +174,14 @@ export function drawPose(pose,label='Frame') {
       details.push(node(label+' Folds',0,0,[shape(label+' Limb folds',creases,null,ink,3.3)],{opacity:smooth((pose.low-.65)/.35)*(1-(pose.loaf||0)),static:true}));
     }
     if(pose.loaf>.5){
-      // 爪子收进胸腹，只留下两侧短短的折线。
-      const folds='M -73 48 C -68 58 -62 65 -51 68 M 73 48 C 68 58 62 65 51 68';
-      details.push(node(label+' Loaf folds',0,0,[shape(label+' Tucked chest',folds,null,ink,3.2)],{opacity:smooth((pose.loaf-.5)*2),static:true}));
+      // 前爪折在胸口底下，只露出两段贴地的弧线。
+      const folds='M -61 82 C -66 92 -62 101 -47 102 C -34 104 -18 103 -12 97 M 61 82 C 66 92 62 101 47 102 C 34 104 18 103 12 97';
+      const opacity=smooth((pose.loaf-.5)*2);
+      details.push(node(label+' Loaf folds',0,0,[shape(label+' Tucked paws',folds,null,ink,3.2),
+        shape(label+' Resting flank','M 82 42 C 93 53 97 71 88 85',null,ink,2.8)],{opacity,static:true}));
+      const [x,y,scale,rotation]=pose.head;
+      details.push(node(label+' Loaf chin',x,y,[shape(label+' Chin crease','M -61 82 C -35 96 35 96 61 82',null,ink,2.8)],
+        {scaleX:scale,scaleY:scale,rotation,opacity,static:true}));
     }
     return node(label,0,0,[shape(label+' Unified Fur',contour),...details],{static:true});
   }
