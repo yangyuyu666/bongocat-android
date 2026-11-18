@@ -28,6 +28,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        findViewById(R.id.btn_weather).setOnClickListener(view -> startActivity(new Intent(this, WeatherActivity.class)));
         settings = new PetSettings(this);
         waitingForOverlay = savedInstanceState != null
                 && savedInstanceState.getBoolean("waiting_for_overlay", false);

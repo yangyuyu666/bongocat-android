@@ -17,8 +17,8 @@ android {
         applicationId 'com.yuyu.bongocat'
         minSdk 26
         targetSdk 34
-        versionCode 19
-        versionName '3.16'
+        versionCode 21
+        versionName '3.18'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         buildConfigField 'String', 'SIGNING_CERT_SHA256', '"' + trustedSigner + '"'
     }

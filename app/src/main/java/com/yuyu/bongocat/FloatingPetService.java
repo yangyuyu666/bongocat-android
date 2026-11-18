@@ -58,6 +58,7 @@ public class FloatingPetService extends Service {
     private Runnable pendingManualAction;
     private PetToolsStore tools;
     private boolean holdingSign;
+    private WeatherWindow weatherWindow;
     private final BroadcastReceiver toolsChanged = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) { refreshTools(); }
     };
@@ -65,6 +66,8 @@ public class FloatingPetService extends Service {
         @Override public void run() {
             PetReminder.checkDue(FloatingPetService.this, tools.token());
             refreshTools();
+            if (attached) weatherWindow.tick(params, !touching && !holdingSign
+                    && (!edge.active || edgeOverride || edge.phase == EdgePeekMotion.PEEK));
             handler.postDelayed(this, 1000);
         }
     };
@@ -107,6 +110,7 @@ public class FloatingPetService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        weatherWindow = new WeatherWindow(this, windowManager);
         settings = new PetSettings(this);
         tools = new PetToolsStore(this);
         androidx.core.content.ContextCompat.registerReceiver(this, toolsChanged,
@@ -392,6 +396,7 @@ public class FloatingPetService extends Service {
         if (!attached) return;
         try {
             windowManager.updateViewLayout(catView, params);
+            weatherWindow.follow(params);
         } catch (SecurityException | IllegalArgumentException exception) {
             hidePet();
         }
@@ -479,6 +484,7 @@ public class FloatingPetService extends Service {
     }
 
     @Override public void onDestroy() {
+        weatherWindow.close();
         handler.removeCallbacksAndMessages(null);
         unregisterReceiver(toolsChanged);
         if (catView != null) catView.stopMotion();
