@@ -13,16 +13,9 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="BongoCat 安卓版 v3.18"
+        android:text="@string/app_name"
         android:textSize="22sp"
         android:textStyle="bold" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="长按猫咪打开番茄钟、便利贴和待办清单。点击牌子可放大阅读，拖动仍可移动。待机时可以摸头、碰鼻子、点前爪和尾巴。横屏会跑到底角探头，举牌时保持完整显示。"
-        android:textSize="14sp" />
 
     <HorizontalScrollView
         android:layout_width="match_parent"
@@ -44,7 +37,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="换装（点一下换个配饰，不换猫）"
+        android:text="配饰"
         android:textSize="16sp"
         android:textStyle="bold" />
 
@@ -59,7 +52,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="换色（给猫换个颜色）"
+        android:text="毛色"
         android:textSize="16sp"
         android:textStyle="bold" />
 
@@ -105,7 +98,7 @@
     <Button android:id="@+id/btn_weather" android:layout_width="match_parent"
         android:layout_height="wrap_content" android:text="天气窗台" />
     <Button android:id="@+id/btn_tools" android:layout_width="match_parent"
-        android:layout_height="wrap_content" android:text="猫咪工具箱 · 番茄钟 / 便利贴 / 待办" />
+        android:layout_height="wrap_content" android:text="猫咪工具箱" />
 
     <Button
         android:id="@+id/btn_show"
@@ -126,14 +119,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="动作（点一下，猫就做给你看）" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="首次显示悬浮猫时，请允许悬浮窗权限。"
-        android:textSize="13sp" />
+        android:text="动作" />
 
 </LinearLayout>
 </ScrollView>

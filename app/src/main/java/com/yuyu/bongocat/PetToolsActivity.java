@@ -175,7 +175,7 @@ public class PetToolsActivity extends Activity {
             button("知道了，收起提醒", () -> { PetReminder.acknowledge(this); render(); }, true);
             button("再休息 5 分钟", () -> startTimer(5), false);
         } else {
-            body.addView(text("倒计时（分钟）", 16, INK));
+            body.addView(text("倒计时分钟数", 16, INK));
             minutesInput = input(minutesDraft == null ? "25" : minutesDraft, "分钟", 3, true);
             LinearLayout choices = new LinearLayout(this); body.addView(choices);
             for (int minutes : new int[]{15, 25, 45, 60}) {

@@ -2,13 +2,13 @@
 
 在原 BongoCat 形象上重做头、身体、四爪和尾巴。保留白色圆胖轮廓、小黑眼、W 嘴、粉色细节及原有功能。工程直接生成 Rive 原生模型，不需要拖拽导入或 Computer Use。
 
-包名 `com.yuyu.bongocat`，版本 **3.18 / 21**，minSdk **26**，targetSdk **34**。猫咪动画在本地播放。天气窗台通过 HTTPS 查询所选城市天气。
+包名 `com.yuyu.bongocat`，版本 **3.19 / 22**，minSdk **26**，targetSdk **34**。猫咪动画在本地播放。天气窗台通过 HTTPS 查询所选城市天气。
 
 首次在「天气窗台」选好城市后，显示悬浮猫约 8 秒，它会自动查看当天的查询记录。按手机本地日期，每天首次成功查询时，气温不高于 12°C 或当前及未来两小时预报有雨，小猫会主动弹出云朵。查询和提醒分别保存时间戳，晴暖天气也会记录查询，当天再次打开直接跳过。查询失败后至少间隔 15 分钟重试。在天气窗台中可更换城市或关闭提醒。
 
 城市搜索和预报由 [Open-Meteo](https://open-meteo.com/) 提供，不需要手机定位。公共 API 适用于非商业使用，商业分发请核对[服务条款与额度](https://open-meteo.com/en/pricing)。
 
-**[下载最新安装包](https://github.com/yangyuyu666/bongocat-android/releases/latest)** · [3.18 更新记录](FIXES.md) · [安装包验签](security/README.md) · [真机验收项目](DEVICE_TESTS.md)
+**[下载最新安装包](https://github.com/yangyuyu666/bongocat-android/releases/latest)** · [3.19 更新记录](FIXES.md) · [安装包验签](security/README.md) · [真机验收项目](DEVICE_TESTS.md)
 
 ## 动作预览
 

@@ -223,7 +223,7 @@ public class MainActivity extends Activity {
         }
         settings.setVisible(true);
         startForegroundService(new Intent(this, FloatingPetService.class));
-        Toast.makeText(this, "猫出来了，拖着走；趴下或睡着后点一下起身", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "已显示悬浮猫", Toast.LENGTH_SHORT).show();
     }
 
     @Override
