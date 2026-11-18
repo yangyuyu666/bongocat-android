@@ -54,7 +54,7 @@ public class RiveContractTest {
         }
         assertEquals(1, doc.getElementsByTagName("StateMachine").getLength());
         assertEquals(3, doc.getElementsByTagName("StateMachineLayer").getLength());
-        assertEquals(43, doc.getElementsByTagName("LinearAnimation").getLength());
+        assertEquals(44, doc.getElementsByTagName("LinearAnimation").getLength());
         named(doc, "ViewModelPropertyBoolean", "holdSign");
         named(doc, "Node", "Sign Board");
         assertEquals(3, doc.getElementsByTagName("RootBone").getLength());

@@ -12,6 +12,7 @@ const baseBody='M -80 -55 C -102 -33 -112 9 -106 52 C -100 88 -78 102 -48 102 L 
 const baseTail='M 78 70 C 101 88 139 77 159 49 C 176 27 179 -3 169 -18 C 162 -29 146 -24 147 -12 C 152 7 142 27 126 38 C 112 48 93 46 81 45 C 70 47 70 62 78 70 Z';
 const backTail='M 98 64 C 110 79 127 90 145 90 C 162 92 179 84 183 70 C 190 49 175 46 171 58 C 169 66 162 72 151 71 C 135 70 122 51 111 48 C 98 44 90 60 98 64 Z';
 const proneTail='M 108 76 C 129 90 153 79 168 59 C 183 39 184 16 176 7 C 167 -2 158 7 162 18 C 166 33 153 51 139 56 C 127 60 119 56 112 55 C 100 55 99 70 108 76 Z';
+const loafTail='M 70 83 C 85 104 118 110 131 92 C 143 76 136 59 128 55 C 120 49 113 55 116 63 C 121 74 117 84 106 85 C 93 79 81 80 75 80 C 68 81 65 80 70 83 Z';
 const baseArm='M -80 -28 C -91 -10 -86 22 -71 34 C -58 43 -39 31 -38 17 C -36 9 -51 -19 -50 -23';
 
 function oval(cx,cy,rx,ry,rotation=0) {
@@ -92,6 +93,11 @@ export const pronePose={
   fore:[[-66,58,-84,77,-102,86],[-18,55,-30,75,-48,91]],
   hind:[[48,58,51,74,46,81],[94,57,100,76,91,89]],
 };
+export const loafPose={
+  head:[0,-18,.90,0],body:[0,49,108,54,0],back:0,low:0,art:1,loaf:1,
+  fore:[[-57,12,-54,38,-43,55],[57,12,54,38,43,55]],
+  hind:[[-59,55,-54,63,-43,69],[59,55,54,63,43,69]],
+};
 export const sidePose={
   head:[-67,26,.73,-1.12],body:[27,48,89,48,-.35],back:.45,low:0,art:1,
   fore:[[-18,16,-23,-15,-3,-31],[6,44,21,30,29,5]],
@@ -105,6 +111,7 @@ export const backPose={
 
 export function blendPose(a,b,t) {
   return {head:point(a.head,b.head,t),body:point(a.body,b.body,t),back:mix(a.back,b.back,t),low:mix(a.low,b.low,t),art:mix(a.art,b.art,t),
+    loaf:mix(a.loaf||0,b.loaf||0,t),
     fore:a.fore.map((v,i)=>point(v,b.fore[i],t)),hind:a.hind.map((v,i)=>point(v,b.hind[i],t))};
 }
 
@@ -138,26 +145,31 @@ export function drawPose(pose,label='Frame') {
     limbPaths.push(path);
     if(pose.low>.01&&pose.art>.65){
       const [x,y]=point(baseHand,paw,pose.art);
-      children.push(node(name+' Toes',0,0,[shape(name+' Toe lines',`M ${x-13} ${y+3} C ${x-13} ${y+7} ${x-10} ${y+10} ${x-8} ${y+11} M ${x-2} ${y+5} C ${x-2} ${y+8} ${x} ${y+11} ${x+2} ${y+12}`,null,ink,2.2)],{opacity:pose.low,static:true}));
+      children.push(node(name+' Toes',0,0,[shape(name+' Toe lines',`M ${x-13} ${y+3} C ${x-13} ${y+7} ${x-10} ${y+10} ${x-8} ${y+11} M ${x-2} ${y+5} C ${x-2} ${y+8} ${x} ${y+11} ${x+2} ${y+12}`,null,ink,2.2)],{opacity:pose.low*(1-(pose.loaf||0)),static:true}));
     }
     const padAmount=type==='fore'?.48*standing+.9*pose.back:.9*pose.back;
     if(padAmount>.001)children.push(buildPads(name,hand,(Math.atan2(dir[1],dir[0])+Math.PI/2)*pose.back,padAmount,radius));
     if(!(pose.unified&&type==='hind'&&i===0))details.push(...children.slice(1));
     limbs.push(node(name,0,0,children,{static:true}));
   }
-  const tail=morph(morph(baseTail,morph(backTail,proneTail,pose.low),pose.art),backTail,pose.tailTuck||0);
+  const tail=morph(morph(morph(baseTail,morph(backTail,proneTail,pose.low),pose.art),backTail,pose.tailTuck||0),loafTail,pose.loaf||0);
   if(pose.unified){
     const contour=unifiedSilhouette([body,...limbPaths,tail],pose.head);
-    if(pose.low<.65){
+    if(pose.low<.65&&pose.art<.999){
       // 起身时逐渐补回爪子内侧线，避免肉垫像浮在肚子上。
       details.unshift(node(label+' Seated folds',0,0,limbPaths.map((path,i)=>shape(label+' Seated limb '+i,path,null,ink,3.8)),
-        {opacity:1-smooth((pose.low-.25)/.4),static:true}));
+        {opacity:(1-smooth((pose.low-.25)/.4))*(1-smooth(((pose.loaf||0)-.7)/.25)),static:true}));
     }
     if(pose.low>.65){
       const f=pose.fore[1],h=pose.hind[1];
       const creases=`M ${f[0]+2} ${f[1]+14} C ${f[2]+14} ${f[3]-1} ${f[4]+24} ${f[5]-6} ${f[4]+22} ${f[5]+4}`+
         ` M ${h[0]-3} ${h[1]+8} C ${h[0]-4} ${h[1]+20} ${h[4]-20} ${h[5]-10} ${h[4]-18} ${h[5]+5}`;
-      details.push(node(label+' Folds',0,0,[shape(label+' Limb folds',creases,null,ink,3.3)],{opacity:smooth((pose.low-.65)/.35),static:true}));
+      details.push(node(label+' Folds',0,0,[shape(label+' Limb folds',creases,null,ink,3.3)],{opacity:smooth((pose.low-.65)/.35)*(1-(pose.loaf||0)),static:true}));
+    }
+    if(pose.loaf>.5){
+      // 爪子收进胸腹，只留下两侧短短的折线。
+      const folds='M -73 48 C -68 58 -62 65 -51 68 M 73 48 C 68 58 62 65 51 68';
+      details.push(node(label+' Loaf folds',0,0,[shape(label+' Tucked chest',folds,null,ink,3.2)],{opacity:smooth((pose.loaf-.5)*2),static:true}));
     }
     return node(label,0,0,[shape(label+' Unified Fur',contour),...details],{static:true});
   }
@@ -207,7 +219,11 @@ export function poseAt(name,frame,duration) {
       pose.fore[0][4]+=2*wave;pose.fore[1][5]-=3*wave;
       pose.hind[0][5]+=4*wave;pose.hind[1][4]-=3*wave;
     }
-  } else if(['Lie','LieCrawlWait','Sleep','LieCrawl','EdgeRun'].includes(name)) {
+  } else if(name==='Sleep') {
+    pose=structuredClone(loafPose);
+    const breath=quantize((1-Math.cos(frame/duration*Math.PI*2))/2,12);
+    pose.head[1]-=1.2*breath;pose.body[1]-=.8*breath;pose.body[3]+=.8*breath;
+  } else if(['Lie','LieCrawlWait','LieCrawl','EdgeRun'].includes(name)) {
     pose=structuredClone(name==='EdgeRun'?edgePronePose:pronePose);
     if(name==='LieCrawl'||name==='EdgeRun') {
       const envelope=name==='EdgeRun'?1:smooth(frame/18)*(1-smooth((frame-duration+30)/30));
@@ -223,8 +239,10 @@ export function poseAt(name,frame,duration) {
       pose.head[1]-=Math.sin(gaitFrame*Math.PI/24)*(name==='EdgeRun'?1.8:.8)*envelope;
     }
   } else if(name==='Sit_To_Crawl')pose=settle(frame/duration);
-  else if(['Wake','LieCrawlWake'].includes(name))pose=settle(1-smooth((frame-6)/(duration-6)));
-  else if(name==='Drowsy')pose=settle((frame-70)/250);
+  else if(name==='LieCrawlWake')pose=settle(1-smooth((frame-6)/(duration-6)));
+  else if(name==='Wake')pose=blendPose(sitPose,loafPose,quantize(1-smooth((frame-6)/(duration-6)),24));
+  else if(name==='Drowsy')pose=blendPose(sitPose,loafPose,quantize(smooth((frame-70)/250),24));
+  else if(name==='ProneDrowsy')pose=blendPose(pronePose,loafPose,quantize(smooth((frame-18)/302),24));
   else if(name==='Crawl'&&frame>=184)pose=settle((frame-184)/44);
   else return null;
   return pose;
@@ -236,7 +254,7 @@ export function buildFrameArt(definitions) {
   const solo=node('Frame Art',0,0,[empty],{type:'Solo',activeComponentId:empty.id,opacity:0});
   for(const def of definitions){
     const name=def.attributes.name,duration=Number(def.attributes.duration),rows=[];
-    if(!['Roll','BellyTickle','EdgeRun','EdgeTuck','Lie','LieCrawlWait','Sleep','LieCrawl','Sit_To_Crawl','Wake','LieCrawlWake','Drowsy','Crawl'].includes(name))continue;
+    if(!['Roll','BellyTickle','EdgeRun','EdgeTuck','Lie','LieCrawlWait','Sleep','LieCrawl','Sit_To_Crawl','Wake','LieCrawlWake','Drowsy','ProneDrowsy','Crawl'].includes(name))continue;
     const times=[];for(let frame=0;frame<duration;frame+=4)times.push(frame);times.push(duration);
     for(const frame of times){
       const pose=poseAt(name,frame,duration);

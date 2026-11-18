@@ -95,7 +95,7 @@ export function buildAnimations(definitions,skin,arms,frameArt) {
       }
     }
     if(name==='Sit_To_Crawl'){blend(lie,smooth(f/duration));tail(.3);}
-    if(name==='Drowsy'){
+    if(name==='Drowsy'||name==='ProneDrowsy'){
       const settle=smooth((f-70)/250);blend(lie,settle);
       closed(Math.max(.55*envelope(f,0,45,110,155),smooth((f-170)/165)));
       p.Head.rotation+=Math.sin(f*Math.PI/105)*.035*(1-settle);tail(.2);

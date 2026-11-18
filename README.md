@@ -2,9 +2,9 @@
 
 在原 BongoCat 形象上重做头、身体、四爪和尾巴。保留白色圆胖轮廓、小黑眼、W 嘴、粉色细节及原有功能。工程直接生成 Rive 原生模型，不需要拖拽导入或 Computer Use。
 
-包名 `com.yuyu.bongocat`，版本 **3.13 / 16**，minSdk **26**，targetSdk **34**。继续使用原有签名、首选项和位置数据。应用只播放本地资源，没有增加 INTERNET 权限。
+包名 `com.yuyu.bongocat`，版本 **3.14 / 17**，minSdk **26**，targetSdk **34**。继续使用原有签名、首选项和位置数据。应用只播放本地资源，没有增加 INTERNET 权限。
 
-**[下载最新安装包](https://github.com/yangyuyu666/bongocat-android/releases/latest)** · [3.13 更新记录](FIXES.md) · [真机验收项目](DEVICE_TESTS.md)
+**[下载最新安装包](https://github.com/yangyuyu666/bongocat-android/releases/latest)** · [3.14 更新记录](FIXES.md) · [真机验收项目](DEVICE_TESTS.md)
 
 ## 动作预览
 
@@ -12,7 +12,7 @@
 
 [点击互动](docs/previews/interactions.gif) · [休息与起身](docs/previews/rest.gif) · [横屏与举牌](docs/previews/edge-and-sign.gif)
 
-预览由原生 Rive 模型渲染，包含与 3.13 相同的动画资源；横屏图展示模型姿势，不包含手机浮窗移动轨迹。举牌文字来自 Android 原生文字视图。
+预览由原生 Rive 模型渲染，休息动作已更新为 3.14 的母鸡蹲睡姿；横屏图展示模型姿势，不包含手机浮窗移动轨迹。举牌文字来自 Android 原生文字视图。
 
 ## 保留的功能
 
@@ -20,11 +20,21 @@
 | --- | --- |
 | 7 种随机动作 | 眨眼、舔爪、摇尾、伸懒腰、哈欠、张望、坐姿爬行；一轮内不重复，动作间保留随机休息。 |
 | 9 个手动动作 | 保留动作页及以上七项、翻滚、趴地爬行的原有触发器。 |
-| 睡眠 | 闲置 90 秒进入 6 秒瞌睡，再进入睡眠；互动重置计时，0.9 秒起身。 |
+| 睡眠 | 闲置 90 秒进入 6 秒瞌睡，再正面母鸡蹲睡觉，四爪收起、轻微呼吸；互动重置计时，0.9 秒起身。 |
 | 有限爬行 | 爬行 3.8 秒后趴着保持；点击/拖动唤醒，边界转向、限位和终点保存不变。 |
 | 外观 | 8 种猫色 × 6 种配饰；换色覆盖头、身体、四爪及尾巴，配饰保持自己的颜色。 |
 | 大小、透明度 | 120～300dp、10～100%；预览及浮窗各有独立的 Rive 实例。 |
 | 浮窗 | 拖动、显示/收起、前台通知、权限检查、设置迁移与位置保存不变。 |
+
+## v3.14：正面母鸡蹲睡姿（2026-11-18）
+
+睡觉时头朝向屏幕外，身体缩成圆润的一团，四爪收在胸腹下面，尾巴贴近身体轻卷；保留闭眼、轻微呼吸和 Zzz。坐着入睡会逐渐收爪，侧趴入睡会先转正；睡醒后再撑起身体。清醒时的侧身趴爬及起身继续使用原来的姿势。
+
+![母鸡蹲睡觉](docs/previews/sleep-loaf.gif)
+
+[查看入睡和醒来](docs/previews/sleep-transition.gif)。头身继续使用一条连贯外轮廓，面部、换色和配饰随姿势变化；模型共有 163 张共享姿势、44 条时间轴。新增侧趴入睡状态与睡姿几何检查，原生截图覆盖两种入睡、睡眠呼吸及两种起身；手机实际效果仍需设备验收。
+
+54 项 Android/JVM 回归和 4 项矢量几何检查通过，0 失败、0 跳过；几何检查覆盖 382 个姿势采样点。Release 构建及 Lint 通过，APK 实际版本、原签名、16KB ZIP 对齐和包内动画资源哈希已核对。
 
 ## v3.13：长按只打开工具弹窗（2026-11-18）
 
@@ -117,6 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/export-rive.ps1
 
 - `tools/rive/bongocat-art.mjs`：分层路径、配饰和尾骨绑定。
 - `tools/rive/frame-poses.mjs`：翻身、趴爬及睡醒过渡的逐帧矢量姿势库。
+- `tools/rive/sleep.mjs`：为侧趴入睡增加独立过渡，区分睡醒与清醒趴姿起身。
 - `tools/rive/silhouette.mjs`：生成趴姿的连贯贝塞尔外轮廓，移除部件相交处的重复边线。
 - `tools/rive/bongocat-motion.mjs`：动作姿势、分部位运动和关键帧压缩。
 - `tools/rive/behavior.json`：原有状态图、属性 ID、动作时长与行为控制轨道。

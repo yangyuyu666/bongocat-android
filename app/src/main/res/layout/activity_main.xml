@@ -13,7 +13,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="BongoCat 安卓版 v3.13"
+        android:text="BongoCat 安卓版 v3.14"
         android:textSize="22sp"
         android:textStyle="bold" />
 

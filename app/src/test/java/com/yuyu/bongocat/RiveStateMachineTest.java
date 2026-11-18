@@ -134,6 +134,12 @@ public class RiveStateMachineTest {
         assertEquals(14, run("wake-drowsy", "--advance=92s", "--data=interaction=1").get("state").getAsInt());
     }
 
+    @Test public void restingAfterCrawlEntersSleepAndWakesNormally() throws Exception {
+        assertEquals(9, run("prone-drowsy", "--data=playLieCrawl=1", "--advance=5401").get("state").getAsInt());
+        assertEquals(10, run("prone-sleep", "--data=playLieCrawl=1", "--advance=5762").get("state").getAsInt());
+        assertEquals(0, run("prone-sleep-awake", "--data=playLieCrawl=1", "--advance=100s", "--data=interaction=1", "--advance=55").get("state").getAsInt());
+    }
+
     @Test public void crawlStopsLiesAndCanBeInterrupted() throws Exception {
         Map<String, JsonElement> crawl = run("crawl-progress", force("Crawl", "--advance=180"));
         assertEquals(7, crawl.get("state").getAsInt());
