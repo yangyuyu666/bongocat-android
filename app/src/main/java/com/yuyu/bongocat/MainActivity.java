@@ -2,11 +2,18 @@ package com.yuyu.bongocat;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.StyleSpan;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -21,6 +28,8 @@ public class MainActivity extends Activity {
     private static final int REQ_OVERLAY = 1;
     private PetSettings settings;
     private RiveView preview;
+    private TextView statusPill;
+    private Button btnActions, btnTools, btnWeather;
     private boolean waitingForOverlay;
     private final java.util.List<Button> costumeButtons = new java.util.ArrayList<Button>();
     private final java.util.List<Button> colorButtons = new java.util.ArrayList<Button>();
@@ -28,72 +37,131 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        UiStyle.applySystemBars(this);
         setContentView(R.layout.activity_main);
-        findViewById(R.id.btn_weather).setOnClickListener(view -> startActivity(new Intent(this, WeatherActivity.class)));
         settings = new PetSettings(this);
         waitingForOverlay = savedInstanceState != null
                 && savedInstanceState.getBoolean("waiting_for_overlay", false);
+
+        styleStaticContainers();
+
         preview = findViewById(R.id.preview_cat);
         applyPreview();
 
         buildCostumeRow();
         buildColorRow();
         buildSliders();
+
         Switch touchThrough = findViewById(R.id.touch_through);
         touchThrough.setChecked(settings.isTouchThrough());
+        touchThrough.setThumbTintList(ColorStateList.valueOf(UiStyle.ACCENT));
+        touchThrough.setTrackTintList(ColorStateList.valueOf(0xFFEBD3DC));
         touchThrough.setOnCheckedChangeListener((button, enabled) -> {
             settings.setTouchThrough(enabled);
             refresh();
         });
+
         refreshButtonStates();
-        findViewById(R.id.btn_tools).setOnClickListener(view -> startActivity(new Intent(this, PetToolsActivity.class)));
+
+        btnActions = findViewById(R.id.btn_actions);
+        btnTools = findViewById(R.id.btn_tools);
+        btnWeather = findViewById(R.id.btn_weather);
+        btnActions.setOnClickListener(v -> startActivity(new Intent(this, ActionsActivity.class)));
+        btnTools.setOnClickListener(v -> startActivity(new Intent(this, PetToolsActivity.class)));
+        btnWeather.setOnClickListener(v -> startActivity(new Intent(this, WeatherActivity.class)));
+        refreshHubCards();
 
         Button btnShow = findViewById(R.id.btn_show);
-        btnShow.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                showPet();
-            }
-        });
+        UiStyle.stylePrimaryButton(this, btnShow);
+        btnShow.setOnClickListener(v -> showPet());
 
         Button btnHide = findViewById(R.id.btn_hide);
-        btnHide.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                settings.setVisible(false);
-                stopService(new Intent(MainActivity.this, FloatingPetService.class));
-                Toast.makeText(MainActivity.this, "猫收起来了", Toast.LENGTH_SHORT).show();
-            }
+        UiStyle.styleSecondaryButton(this, btnHide);
+        btnHide.setOnClickListener(v -> {
+            settings.setVisible(false);
+            stopService(new Intent(MainActivity.this, FloatingPetService.class));
+            refreshStatusPill();
+            Toast.makeText(MainActivity.this, "猫收起来了", Toast.LENGTH_SHORT).show();
         });
 
-        Button btnActions = findViewById(R.id.btn_actions);
-        btnActions.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) {
-                startActivity(new Intent(MainActivity.this, ActionsActivity.class));
-            }
-        });
+        statusPill = findViewById(R.id.status_pill);
+        refreshStatusPill();
+    }
+
+    private void styleStaticContainers() {
+        View stage = findViewById(R.id.stage_card);
+        stage.setBackground(UiStyle.gradientCard(this, UiStyle.STAGE_TOP, UiStyle.STAGE_BOTTOM, UiStyle.BORDER, 24f));
+        View hint = findViewById(R.id.stage_hint);
+        hint.setBackground(UiStyle.card(this, 0xCCFFFFFF, 0xFFF2E2E8, 99f));
+
+        View appearance = findViewById(R.id.card_appearance);
+        appearance.setBackground(UiStyle.card(this, UiStyle.SURFACE, UiStyle.BORDER, 22f));
+
+        View display = findViewById(R.id.card_display);
+        display.setBackground(UiStyle.card(this, UiStyle.SURFACE, UiStyle.BORDER, 22f));
+    }
+
+    private void refreshStatusPill() {
+        if (statusPill == null) return;
+        boolean visible = settings.isVisible() && Settings.canDrawOverlays(this);
+        statusPill.setText(visible ? "● 桌面陪伴中" : "○ 未开启");
+        statusPill.setTextColor(visible ? UiStyle.SUCCESS : UiStyle.MUTED);
+        statusPill.setBackground(UiStyle.card(this,
+                visible ? UiStyle.SUCCESS_SOFT : UiStyle.SURFACE,
+                visible ? 0xFFBDE3CE : UiStyle.BORDER, 99f));
+    }
+
+    private void refreshHubCards() {
+        styleHubButton(btnActions, "动作剧场", "9 种表演", 0xFFFFF4F7, 0xFFF4D3DF);
+        PetToolsStore tools = new PetToolsStore(this);
+        String toolsSub = tools.status() == PetToolsStore.RUNNING
+                ? "专注 " + PetToolsStore.formatTime(tools.remaining())
+                : tools.status() == PetToolsStore.PAUSED ? "番茄已暂停" : "番茄·便签";
+        styleHubButton(btnTools, "猫咪工具箱", toolsSub, 0xFFFFF7EE, 0xFFF3DEC6);
+
+        SharedPreferences weatherPrefs = Weather.preferences(this);
+        String city = weatherPrefs.getString("city", "");
+        String weatherSub = city.isEmpty() ? "选择城市"
+                : Weather.fresh(weatherPrefs.getLong("observed", 0), System.currentTimeMillis(), 2 * Weather.HOUR)
+                ? city + " " + Math.round(weatherPrefs.getFloat("temp", 0)) + "°"
+                : city;
+        styleHubButton(btnWeather, "天气窗台", weatherSub, 0xFFF2F8FE, 0xFFCFE2F5);
+    }
+
+    private void styleHubButton(Button button, String title, String subtitle, int fill, int border) {
+        SpannableString label = new SpannableString(title + "\n" + subtitle);
+        label.setSpan(new StyleSpan(Typeface.BOLD), 0, title.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        label.setSpan(new ForegroundColorSpan(UiStyle.INK), 0, title.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        label.setSpan(new RelativeSizeSpan(0.84f), title.length() + 1, label.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        label.setSpan(new ForegroundColorSpan(UiStyle.MUTED), title.length() + 1, label.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        button.setText(label);
+        button.setAllCaps(false);
+        button.setStateListAnimator(null);
+        button.setBackground(UiStyle.ripple(this, fill, border, 1f, 18f, UiStyle.RIPPLE_PINK));
     }
 
     private void buildCostumeRow() {
         LinearLayout container = findViewById(R.id.costume_row);
         LinearLayout row = null;
         for (int i = 0; i < PetSettings.COSTUME_NAMES.length; i++) {
-            if (i % 3 == 0) row = addButtonRow(container);
+            if (i % 3 == 0) row = addButtonRow(container, i > 0);
             final int idx = i;
             Button b = new Button(this);
             b.setText(PetSettings.COSTUME_NAMES[i]);
-            b.setTextSize(12);
+            b.setTextSize(13);
+            b.setAllCaps(false);
+            b.setStateListAnimator(null);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            lp.setMargins(dp(2), 0, dp(2), 0);
+            lp.setMargins(dp(3), 0, dp(3), 0);
             b.setMinWidth(0);
             b.setMinimumWidth(0);
-            b.setMinHeight(dp(48));
+            b.setMinHeight(dp(46));
             b.setPadding(dp(4), 0, dp(4), 0);
             b.setLayoutParams(lp);
-            b.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    settings.setCostume(idx);
-                    refresh();
-                }
+            b.setOnClickListener(v -> {
+                settings.setCostume(idx);
+                refresh();
             });
             row.addView(b);
             costumeButtons.add(b);
@@ -101,56 +169,73 @@ public class MainActivity extends Activity {
     }
 
     private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
+        return UiStyle.dp(this, value);
     }
 
-    private LinearLayout addButtonRow(LinearLayout container) {
+    private LinearLayout addButtonRow(LinearLayout container, boolean topGap) {
         LinearLayout row = new LinearLayout(this);
-        container.addView(row, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        if (topGap) lp.topMargin = dp(8);
+        container.addView(row, lp);
         return row;
     }
 
-    /** 用黄色和选中语义标出当前项，并保持深色按钮的文字可读。 */
     private void refreshButtonStates() {
         for (int i = 0; i < costumeButtons.size(); i++) {
-            styleChoice(costumeButtons.get(i), i == settings.getCostume(), 0xFFE0E0E0);
+            styleCostumeChoice(costumeButtons.get(i), i == settings.getCostume());
         }
         for (int i = 0; i < colorButtons.size(); i++) {
-            styleChoice(colorButtons.get(i), i == settings.getColor(), PetSettings.COLOR_TINTS[i]);
+            styleColorChoice(colorButtons.get(i), PetSettings.COLOR_NAMES[i],
+                    i == settings.getColor(), PetSettings.COLOR_TINTS[i]);
         }
     }
 
-    private void styleChoice(Button button, boolean selected, int color) {
-        int background = selected ? 0xFFFFE082 : color;
+    private void styleCostumeChoice(Button button, boolean selected) {
         button.setSelected(selected);
-        button.setBackgroundTintList(ColorStateList.valueOf(background));
-        button.setTextColor(Color.luminance(background) < 0.3f ? Color.WHITE : Color.BLACK);
+        button.setBackground(UiStyle.ripple(this,
+                selected ? UiStyle.ACCENT_SOFT : UiStyle.SURFACE_SOFT,
+                selected ? UiStyle.ACCENT : UiStyle.BORDER,
+                selected ? 1.8f : 1f, 14f, UiStyle.RIPPLE_PINK));
+        button.setTextColor(selected ? UiStyle.ACCENT_DARK : UiStyle.INK);
+        button.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
         button.setContentDescription(button.getText() + (selected ? "，已选中" : ""));
+    }
+
+    private void styleColorChoice(Button button, String name, boolean selected, int tint) {
+        button.setSelected(selected);
+        button.setText(selected ? "✓ " + name : name);
+        int borderColor = selected ? UiStyle.ACCENT : (tint == 0xFFFFFFFF ? 0xFFE3D7D0 : 0x223E3440);
+        button.setBackground(UiStyle.ripple(this, tint, borderColor,
+                selected ? 2.4f : 1f, 14f, UiStyle.RIPPLE_PINK));
+        boolean dark = Color.luminance(tint) < 0.35f;
+        button.setTextColor(dark ? Color.WHITE : UiStyle.INK);
+        button.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
+        button.setContentDescription(name + (selected ? "，已选中" : ""));
     }
 
     private void buildColorRow() {
         LinearLayout container = findViewById(R.id.color_row);
         LinearLayout row = null;
         for (int i = 0; i < PetSettings.COLOR_NAMES.length; i++) {
-            if (i % 4 == 0) row = addButtonRow(container);
+            if (i % 4 == 0) row = addButtonRow(container, i > 0);
             final int idx = i;
             Button b = new Button(this);
             b.setText(PetSettings.COLOR_NAMES[i]);
             b.setTextSize(12);
+            b.setAllCaps(false);
+            b.setStateListAnimator(null);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            lp.setMargins(dp(2), 0, dp(2), 0);
+            lp.setMargins(dp(3), 0, dp(3), 0);
             b.setMinWidth(0);
             b.setMinimumWidth(0);
-            b.setMinHeight(dp(48));
-            b.setPadding(dp(4), 0, dp(4), 0);
+            b.setMinHeight(dp(46));
+            b.setPadding(dp(2), 0, dp(2), 0);
             b.setLayoutParams(lp);
-            b.setOnClickListener(new View.OnClickListener() {
-                @Override public void onClick(View v) {
-                    settings.setColor(idx);
-                    refresh();
-                }
+            b.setOnClickListener(v -> {
+                settings.setColor(idx);
+                refresh();
             });
             row.addView(b);
             colorButtons.add(b);
@@ -160,6 +245,7 @@ public class MainActivity extends Activity {
     private void buildSliders() {
         final TextView labelSize = findViewById(R.id.label_size);
         SeekBar seekSize = findViewById(R.id.seek_size);
+        UiStyle.styleSeekBar(seekSize);
         seekSize.setProgress(settings.getSizeDp() - 120);
         labelSize.setText("大小：" + settings.getSizeDp() + "dp");
         seekSize.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -175,6 +261,7 @@ public class MainActivity extends Activity {
 
         final TextView labelOpacity = findViewById(R.id.label_opacity);
         SeekBar seekOpacity = findViewById(R.id.seek_opacity);
+        UiStyle.styleSeekBar(seekOpacity);
         seekOpacity.setProgress(settings.getOpacity() - 10);
         labelOpacity.setText("透明度：" + settings.getOpacity() + "%");
         seekOpacity.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -192,13 +279,14 @@ public class MainActivity extends Activity {
     private void refresh() {
         applyPreview();
         refreshButtonStates();
+        refreshStatusPill();
         if (settings.isVisible()) {
             if (!Settings.canDrawOverlays(this)) {
                 settings.setVisible(false);
                 stopService(new Intent(this, FloatingPetService.class));
+                refreshStatusPill();
                 return;
             }
-            // 向现有服务发送外观设置，窗口坐标保持不变。
             Intent i = new Intent(this, FloatingPetService.class);
             i.setAction(FloatingPetService.ACTION_UPDATE_SETTINGS);
             startService(i);
@@ -215,7 +303,7 @@ public class MainActivity extends Activity {
         preview.setLayoutParams(lp);
         android.view.ViewGroup stage = (android.view.ViewGroup) preview.getParent();
         android.view.ViewGroup.LayoutParams stageParams = stage.getLayoutParams();
-        stageParams.height = px + dp(64);
+        stageParams.height = px + dp(56);
         stage.setLayoutParams(stageParams);
     }
 
@@ -230,6 +318,7 @@ public class MainActivity extends Activity {
         }
         settings.setVisible(true);
         startForegroundService(new Intent(this, FloatingPetService.class));
+        refreshStatusPill();
         Toast.makeText(this, "已显示悬浮猫", Toast.LENGTH_SHORT).show();
     }
 
@@ -248,12 +337,13 @@ public class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         preview.setBehaviorActive(true);
-        // 部分系统的授权页面不回传结果，返回前台时再检查一次。
         finishOverlayRequest();
         if (!Settings.canDrawOverlays(this)) {
             settings.setVisible(false);
             stopService(new Intent(this, FloatingPetService.class));
         }
+        refreshStatusPill();
+        refreshHubCards();
     }
 
     @Override protected void onSaveInstanceState(Bundle outState) {

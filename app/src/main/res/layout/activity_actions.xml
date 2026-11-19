@@ -2,27 +2,103 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF">
+    android:background="#FAF5F1"
+    android:overScrollMode="ifContentScrolls">
 
 <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:paddingStart="18dp"
+    android:paddingEnd="18dp"
+    android:paddingTop="18dp"
+    android:paddingBottom="28dp">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="动作"
-        android:textSize="22sp"
-        android:textStyle="bold" />
-
+    <!-- 顶栏：返回按钮 + 标题 -->
     <LinearLayout
-        android:id="@+id/actions_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_back"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:padding="0dp"
+            android:text="‹"
+            android:textSize="22sp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="动作剧场"
+                android:textColor="#3E3440"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/actions_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="轻点卡片，让悬浮猫立即表演"
+                android:textColor="#887C8B"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 动作网格卡片区 -->
+    <LinearLayout
+        android:id="@+id/actions_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
         android:orientation="vertical"
-        android:layout_marginTop="12dp" />
+        android:padding="14dp">
+
+        <LinearLayout
+            android:id="@+id/actions_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </LinearLayout>
+
+    <!-- 隐藏互动彩蛋小贴士卡片 -->
+    <LinearLayout
+        android:id="@+id/tips_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="桌宠互动小彩蛋"
+            android:textColor="#3E3440"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:lineSpacingExtra="5dp"
+            android:text="• 摸头：眯成月牙笑眼蹭蹭你，连点三次还会害羞躲闪\n• 戳鼻尖：受惊后仰再歪头疑惑看你\n• 轻点左右爪或尾巴：挥爪回应、欢快甩尾\n• 翻肚皮时轻点肚子：四脚朝天乱蹬撒娇\n• 长按小猫：随时呼出番茄钟、举牌便利贴与待办"
+            android:textColor="#7A6E7D"
+            android:textSize="13sp" />
+    </LinearLayout>
 
 </LinearLayout>
 </ScrollView>

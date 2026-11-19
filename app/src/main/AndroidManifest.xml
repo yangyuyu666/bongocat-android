@@ -15,7 +15,7 @@
         android:hardwareAccelerated="true"
         android:label="BongoCat 安卓版"
         android:icon="@drawable/cat_alone"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/AppTheme">
 
         <activity
             android:name=".MainActivity"

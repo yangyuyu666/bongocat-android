@@ -1,10 +1,11 @@
 import {node,shape,ellipse,paths} from './vector.mjs';
 import {unifiedSilhouette} from './silhouette.mjs';
 
-const ink='#49414B',pink='#F1A9BC';
+const ink='#463C49',pink='#F3A3BA',shadeSoft='#144A3548';
 const mix=(a,b,t)=>a+(b-a)*t;
 const point=(a,b,t)=>a.map((value,i)=>mix(value,b[i],t));
 const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
+const smoother=x=>{x=Math.max(0,Math.min(1,x));return x*x*x*(x*(x*6-15)+10);};
 const unit=(a,b)=>{const d=Math.hypot(b[0]-a[0],b[1]-a[1])||1;return [(b[0]-a[0])/d,(b[1]-a[1])/d];};
 const add=(a,b,s=1)=>[a[0]+b[0]*s,a[1]+b[1]*s];
 const xy=p=>p.map(v=>Math.round(v*1000)/1000).join(' ');
@@ -117,10 +118,14 @@ export function blendPose(a,b,t) {
 }
 
 function buildPads(name,paw,angle,amount,radius=18) {
-  const dot=(label,x,y,rx,ry)=>shape(name+label,ellipse(x,y,rx,ry),pink,null);
-  return node(name+' Pads',paw[0],paw[1],[dot(' Bean',0,4,8,7),dot(' Toe A',-9,-5,3.5,4),
-    dot(' Toe B',0,-10,3.8,4),dot(' Toe C',9,-5,3.5,4)],
-    {rotation:angle,scaleX:radius/19,scaleY:radius/19,opacity:amount,static:true});
+  const dot=(label,x,y,rx,ry,c=pink)=>shape(name+label,ellipse(x,y,rx,ry),c,null);
+  return node(name+' Pads',paw[0],paw[1],[
+    dot(' Bean',0,4,8.4,7.4),
+    dot(' Bean Shine',-2.2,1.6,2.2,1.5,'#66FFFFFF'),
+    dot(' Toe A',-9,-5,3.7,4.2),
+    dot(' Toe B',0,-10,4,4.2),
+    dot(' Toe C',9,-5,3.7,4.2),
+  ],{rotation:angle,scaleX:radius/19,scaleY:radius/19,opacity:amount,static:true});
 }
 
 export function drawPose(pose,label='Frame') {
@@ -148,13 +153,13 @@ export function drawPose(pose,label='Frame') {
     }
     const baseHand=type==='fore'?[i?56:-56,19]:[i?54:-58,87];
     const hand=point(baseHand,add(paw,dir,4*pose.back),pose.art);
-    const children=[shape(name+' Fur',path)];
+    const children=[shape(name+' Fur',path,'body',ink,4.4)];
     limbPaths.push(path);
     if(pose.low>.01&&pose.art>.65){
       const [x,y]=point(baseHand,paw,pose.art);
       children.push(node(name+' Toes',0,0,[shape(name+' Toe lines',`M ${x-13} ${y+3} C ${x-13} ${y+7} ${x-10} ${y+10} ${x-8} ${y+11} M ${x-2} ${y+5} C ${x-2} ${y+8} ${x} ${y+11} ${x+2} ${y+12}`,null,ink,2.2)],{opacity:pose.low*(1-(pose.loaf||0)),static:true}));
     }
-    const padAmount=type==='fore'?.48*standing+.9*pose.back:.9*pose.back;
+    const padAmount=type==='fore'?.52*standing+.92*pose.back:.92*pose.back;
     if(padAmount>.001)children.push(buildPads(name,hand,(Math.atan2(dir[1],dir[0])+Math.PI/2)*pose.back,padAmount,radius));
     if(!(pose.unified&&type==='hind'&&i===0))details.push(...children.slice(1));
     limbs.push(node(name,0,0,children,{static:true}));
@@ -162,34 +167,42 @@ export function drawPose(pose,label='Frame') {
   const tail=morph(morph(morph(baseTail,morph(backTail,proneTail,pose.low),pose.art),backTail,pose.tailTuck||0),loafTail,pose.loaf||0);
   if(pose.unified){
     const contour=unifiedSilhouette([body,...limbPaths,tail],pose.head);
+    // 轮廓内部叠加柔和体积底影，与坐姿插画光影质感一致。
+    if(pose.low>.5){
+      details.unshift(node(label+' Ground shade',cx+6,cy+ry*.56,[
+        shape(label+' Belly shade',ellipse(0,0,rx*.76,Math.max(8,ry*.24)),shadeSoft,null),
+      ],{opacity:smooth((pose.low-.5)*2)*(1-(pose.loaf||0)),static:true}));
+    }
     if(pose.low<.65&&pose.art<.999){
       // 起身时逐渐补回爪子内侧线，避免肉垫像浮在肚子上。
-      details.unshift(node(label+' Seated folds',0,0,limbPaths.map((path,i)=>shape(label+' Seated limb '+i,path,null,ink,3.8)),
+      details.unshift(node(label+' Seated folds',0,0,limbPaths.map((path,i)=>shape(label+' Seated limb '+i,path,null,ink,3.7)),
         {opacity:(1-smooth((pose.low-.25)/.4))*(1-smooth(((pose.loaf||0)-.7)/.25)),static:true}));
     }
     if(pose.low>.65){
       const f=pose.fore[1],h=pose.hind[1];
       const creases=`M ${f[0]+2} ${f[1]+14} C ${f[2]+14} ${f[3]-1} ${f[4]+24} ${f[5]-6} ${f[4]+22} ${f[5]+4}`+
         ` M ${h[0]-3} ${h[1]+8} C ${h[0]-4} ${h[1]+20} ${h[4]-20} ${h[5]-10} ${h[4]-18} ${h[5]+5}`;
-      details.push(node(label+' Folds',0,0,[shape(label+' Limb folds',creases,null,ink,3.3)],{opacity:smooth((pose.low-.65)/.35)*(1-(pose.loaf||0)),static:true}));
+      details.push(node(label+' Folds',0,0,[shape(label+' Limb folds',creases,null,ink,3.2)],{opacity:smooth((pose.low-.65)/.35)*(1-(pose.loaf||0)),static:true}));
     }
     if(pose.loaf>.5){
-      // 前爪折在胸口底下，只露出两段贴地的弧线。
+      // 前爪折在胸口底下，配柔和胸腹底部暖影。
       const folds='M -61 82 C -66 92 -62 101 -47 102 C -34 104 -18 103 -12 97 M 61 82 C 66 92 62 101 47 102 C 34 104 18 103 12 97';
       const opacity=smooth((pose.loaf-.5)*2);
+      details.push(node(label+' Loaf shade',4,89,[shape(label+' Loaf bottom shade',ellipse(0,0,76,12),shadeSoft,null)],{opacity,static:true}));
       details.push(node(label+' Loaf folds',0,0,[shape(label+' Tucked paws',folds,null,ink,3.2),
         shape(label+' Resting flank','M 82 42 C 93 53 97 71 88 85',null,ink,2.8)],{opacity,static:true}));
       const [x,y,scale,rotation]=pose.head;
       details.push(node(label+' Loaf chin',x,y,[shape(label+' Chin crease','M -61 82 C -35 96 35 96 61 82',null,ink,2.8)],
         {scaleX:scale,scaleY:scale,rotation,opacity,static:true}));
     }
-    return node(label,0,0,[shape(label+' Unified Fur',contour),...details],{static:true});
+    return node(label,0,0,[shape(label+' Unified Fur',contour,'body',ink,4.4),...details],{static:true});
   }
   const belly=pose.back>.001?node(label+' Belly',cx+4,cy+2,[
-    shape(label+' Belly warmth',ellipse(0,0,37,44),'#FFF1F2',null),
-  ],{rotation:angle,opacity:pose.back*.6,scaleX:.35+.65*pose.back,static:true}):null;
-  const tailNode=node(label+' Tail',0,0,[shape(label+' Tail fur',tail)],{static:true});
-  const torso=shape(label+' Body fur',body),warmth=belly?[belly]:[];
+    shape(label+' Belly warmth',ellipse(0,0,40,47),'#FFF0F4',null),
+    shape(label+' Belly center',ellipse(0,0,26,31),'#28FFCADB',null),
+  ],{rotation:angle,opacity:pose.back*.68,scaleX:.35+.65*pose.back,static:true}):null;
+  const tailNode=node(label+' Tail',0,0,[shape(label+' Tail fur',tail,'body',ink,4.4)],{static:true});
+  const torso=shape(label+' Body fur',body,'body',ink,4.4),warmth=belly?[belly]:[];
   let layers;
   if(pose.art<.65)layers=[tailNode,torso,...warmth,limbs[2],limbs[3],limbs[0],limbs[1]];
   else if(pose.back<.4)layers=[tailNode,limbs[2],torso,...warmth,limbs[0],limbs[3],limbs[1]];
@@ -205,69 +218,79 @@ const rollKeys=[[0,sitPose],[16,crouchPose],[40,leanPose],[68,sidePose],[96,back
   [174,backPose],[202,sidePose],[230,leanPose],[254,crouchPose],[270,sitPose]];
 const quantize=(value,steps)=>Math.round(value*steps)/steps;
 
-function settle(amount) {return blendPose(sitPose,pronePose,quantize(smooth(amount),24));}
+function settle(amount) {return blendPose(sitPose,pronePose,quantize(smoother(amount),28));}
 
 export function poseAt(name,frame,duration) {
   let pose;
   if(name==='BellyTickle') {
     if(frame>=48)return poseAt('Roll',174+(frame-48),270);
     pose=structuredClone(backPose);
-    const kick=Math.sin(frame*Math.PI/12)*Math.sin(Math.PI*frame/48);
-    pose.fore[0][4]+=5*kick;pose.fore[1][5]+=5*kick;
-    pose.hind[0][5]-=17*kick;pose.hind[1][4]+=14*kick;
-    pose.head[3]+=.045*kick;
+    const kick=Math.sin(frame*Math.PI/10)*Math.sin(Math.PI*frame/48);
+    const counter=Math.cos(frame*Math.PI/10)*Math.sin(Math.PI*frame/48);
+    pose.fore[0][4]+=7*kick;pose.fore[0][5]-=4*Math.abs(kick);
+    pose.fore[1][5]+=7*counter;pose.fore[1][4]-=4*kick;
+    pose.hind[0][5]-=20*kick;pose.hind[1][4]+=17*counter;
+    pose.head[3]+=.06*kick;pose.body[4]+=.035*kick;
   } else if(name==='EdgeTuck') {
     pose=structuredClone(edgePronePose);
     pose.head=point(edgePronePose.head,[0,118,.95,0],smooth(frame/duration));
     // 藏身前先收低尾巴，避免尾根出画后只剩一截尾尖。
-    if(frame>0)pose.tailTuck=smooth(frame/(duration*.5));
+    if(frame>0)pose.tailTuck=smooth(frame/(duration*.45));
   } else if(name==='Roll') {
     let i=0;while(i<rollKeys.length-2&&frame>rollKeys[i+1][0])i++;
     const [a,pa]=rollKeys[i],[b,pb]=rollKeys[i+1];
-    pose=blendPose(pa,pb,quantize(smooth((frame-a)/(b-a)),8));
+    pose=blendPose(pa,pb,quantize(smoother((frame-a)/(b-a)),20));
     if(frame>=96&&frame<=174){
-      const wave=Math.sin(Math.round((frame-96)/4)*Math.PI/6);
-      pose.head[3]+=.035*wave;pose.body[4]+=.035*wave;
-      pose.fore[0][4]+=2*wave;pose.fore[1][5]-=3*wave;
-      pose.hind[0][5]+=4*wave;pose.hind[1][4]-=3*wave;
+      const t=(frame-96)/78,env=Math.sin(t*Math.PI);
+      const wave=Math.sin((frame-96)*Math.PI/14)*env;
+      const wave2=Math.sin((frame-96)*Math.PI/14+1.3)*env;
+      pose.head[3]+=.05*wave;pose.body[4]+=.04*wave;
+      pose.fore[0][4]+=4.5*wave;pose.fore[0][5]-=3*wave2;
+      pose.fore[1][5]-=5.5*wave2;pose.fore[1][4]+=3*wave;
+      pose.hind[0][5]+=6.5*wave2;pose.hind[1][4]-=5.5*wave;
     }
   } else if(name==='Sleep') {
     pose=structuredClone(loafPose);
-    const breath=quantize((1-Math.cos(frame/duration*Math.PI*2))/2,12);
-    pose.head[1]-=1.2*breath;pose.body[1]-=.8*breath;pose.body[3]+=.8*breath;
+    const breath=quantize((1-Math.cos(frame/duration*Math.PI*2))/2,20);
+    pose.head[1]-=1.4*breath;pose.body[1]-=.9*breath;pose.body[3]+=.9*breath;
   } else if(['Lie','LieCrawlWait','LieCrawl','EdgeRun'].includes(name)) {
     pose=structuredClone(name==='EdgeRun'?edgePronePose:pronePose);
     if(name==='LieCrawl'||name==='EdgeRun') {
-      const envelope=name==='EdgeRun'?1:smooth(frame/18)*(1-smooth((frame-duration+30)/30));
+      const env=name==='EdgeRun'?1:smoother(frame/18)*(1-smoother((frame-duration+30)/30));
       const gaitFrame=name==='EdgeRun'?frame*2:frame;
       for(const type of ['fore','hind'])for(let i=0;i<2;i++){
         const phase=((gaitFrame/48+(type==='fore'?i:1-i)*.5)%1+1)%1;
         const stance=phase<.62,progress=stance?phase/.62:(phase-.62)/.38;
-        const stride=(stance?mix(-1,1,progress):mix(1,-1,smooth(progress)))*envelope;
-        const lift=stance?0:Math.sin(progress*Math.PI)*(type==='fore'?9:6)*envelope;
-        pose[type][i][4]+=stride*(type==='fore'?15:10);pose[type][i][5]-=lift;
-        pose[type][i][2]+=stride*5;pose[type][i][3]-=lift*.35;
+        const stride=(stance?mix(-1,1,progress):mix(1,-1,smoother(progress)))*env;
+        const lift=stance?0:Math.sin(progress*Math.PI)*(type==='fore'?10.5:7)*env;
+        pose[type][i][4]+=stride*(type==='fore'?16:11);pose[type][i][5]-=lift;
+        pose[type][i][2]+=stride*5.5;pose[type][i][3]-=lift*.38;
       }
-      pose.head[1]-=Math.sin(gaitFrame*Math.PI/24)*(name==='EdgeRun'?1.8:.8)*envelope;
+      const bob=Math.sin(gaitFrame*Math.PI/24);
+      pose.head[1]-=bob*(name==='EdgeRun'?2.2:1.0)*env;
+      pose.head[3]+=Math.cos(gaitFrame*Math.PI/24)*(name==='EdgeRun'?.02:.01)*env;
+      pose.body[1]-=Math.sin(gaitFrame*Math.PI/24-.4)*(name==='EdgeRun'?1.2:.5)*env;
     }
   } else if(name==='Sit_To_Crawl')pose=settle(frame/duration);
-  else if(name==='LieCrawlWake')pose=settle(1-smooth((frame-6)/(duration-6)));
-  else if(name==='Wake')pose=blendPose(sitPose,loafPose,quantize(1-smooth((frame-6)/(duration-6)),24));
-  else if(name==='Drowsy')pose=blendPose(sitPose,loafPose,quantize(smooth((frame-70)/250),24));
-  else if(name==='ProneDrowsy')pose=blendPose(pronePose,loafPose,quantize(smooth((frame-18)/302),24));
+  else if(name==='LieCrawlWake')pose=settle(1-smoother((frame-6)/(duration-6)));
+  else if(name==='Wake')pose=blendPose(sitPose,loafPose,quantize(1-smoother((frame-6)/(duration-6)),24));
+  else if(name==='Drowsy')pose=blendPose(sitPose,loafPose,quantize(smoother((frame-70)/250),28));
+  else if(name==='ProneDrowsy')pose=blendPose(pronePose,loafPose,quantize(smoother((frame-18)/302),28));
   else if(name==='Crawl'&&frame>=184)pose=settle((frame-184)/44);
   else return null;
   return pose;
 }
 
-// 各状态共用姿势库，过渡和慢动作复用同一组坐姿到趴姿画面。
+// 各状态共用姿势库，动态动作采用更高帧率，长过渡复用姿势以平衡体积与流畅度。
 export function buildFrameArt(definitions) {
   const empty=node('Frame Empty',0,0,[],{static:true}),cache=new Map(),animations=new Map();
   const solo=node('Frame Art',0,0,[empty],{type:'Solo',activeComponentId:empty.id,opacity:0});
+  const highFps=new Set(['Roll','BellyTickle','EdgeRun','EdgeTuck','Wake','LieCrawlWake']);
   for(const def of definitions){
     const name=def.attributes.name,duration=Number(def.attributes.duration),rows=[];
     if(!['Roll','BellyTickle','EdgeRun','EdgeTuck','Lie','LieCrawlWait','Sleep','LieCrawl','Sit_To_Crawl','Wake','LieCrawlWake','Drowsy','ProneDrowsy','Crawl'].includes(name))continue;
-    const times=[];for(let frame=0;frame<duration;frame+=4)times.push(frame);times.push(duration);
+    const step=highFps.has(name)?2:3;
+    const times=[];for(let frame=0;frame<duration;frame+=step)times.push(frame);times.push(duration);
     for(const frame of times){
       const pose=poseAt(name,frame,duration);
       if(!pose||pose.art===0){rows.push({frame,id:empty.id,pose:null});continue;}

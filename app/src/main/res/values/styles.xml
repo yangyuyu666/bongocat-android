@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FAF5F1</item>
+        <item name="android:colorPrimary">#D96B90</item>
+        <item name="android:colorPrimaryDark">#FAF5F1</item>
+        <item name="android:colorAccent">#D96B90</item>
+        <item name="android:statusBarColor">#FAF5F1</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
     <style name="PetToolsPopupTheme" parent="android:style/Theme.Material.Light.Dialog.NoActionBar">
         <item name="android:windowDisablePreview">true</item>
         <item name="android:windowAnimationStyle">@null</item>

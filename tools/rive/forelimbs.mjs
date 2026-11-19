@@ -15,10 +15,15 @@ export function buildForelimb(side,ink,pink) {
   const weights=[{p:1,in:1,out:[1,2,.25]},{p:3,in:3,out:3},
     {p:3,in:3,out:3},{p:1,in:1,out:1}];
   const padPosition=[sign*56,19];
-  const dot=(suffix,x,y,rx,ry)=>shape(name+suffix,ellipse(x,y,rx,ry),pink,null);
-  const pads=node(name+' Pads',...padPosition,[dot(' Main pad',0,4,9,10),
-    dot(' Toe left',-10,-9,4,4.7),dot(' Toe middle',0,-13,4.2,4.7),dot(' Toe right',10,-9,4,4.7)],{opacity:.48});
-  const group=node(name,0,0,[shape(name+' Shape',d,'body',ink,4.5,{skinned:true,skin,weights}),pads]);
+  const dot=(suffix,x,y,rx,ry,color=pink)=>shape(name+suffix,ellipse(x,y,rx,ry),color,null);
+  const pads=node(name+' Pads',...padPosition,[
+    dot(' Main pad',0,4.5,9.4,10.2),
+    dot(' Main highlight',-2.4,1.2,2.6,1.8,'#66FFFFFF'),
+    dot(' Toe left',-10.2,-8.6,4.1,4.8),
+    dot(' Toe middle',0,-12.8,4.3,4.8),
+    dot(' Toe right',10.2,-8.6,4.1,4.8),
+  ],{opacity:.56});
+  const group=node(name,0,0,[shape(name+' Shape',d,'body',ink,4.4,{skinned:true,skin,weights}),pads]);
   group.extraXml=skin.boneXml();
   return {name,side,skin,node:group,joints,padPosition,control:[side==='Left'?-54:48,-21]};
 }

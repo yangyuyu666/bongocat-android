@@ -2,12 +2,12 @@ package com.yuyu.bongocat;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -29,7 +29,7 @@ import android.widget.Toast;
 
 /** 长按菜单使用独立对话窗口，编辑时让系统正常管理键盘和返回键。 */
 public class PetToolsActivity extends Activity {
-    private static final int INK = 0xff493f49, MUTED = 0xff817781, PINK = 0xffad5777;
+    private static final int INK = UiStyle.INK, MUTED = UiStyle.MUTED, PINK = UiStyle.ACCENT;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private PetToolsStore store;
     private String page = "menu", noteDraft, minutesDraft, taskDraft;
@@ -58,34 +58,37 @@ public class PetToolsActivity extends Activity {
         }
         setFinishOnTouchOutside(true);
         getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        getWindow().setDimAmount(.08f);
+        getWindow().setDimAmount(.12f);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
         render();
     }
 
-    private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
-    private GradientDrawable background(int color, int stroke) {
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(color); drawable.setCornerRadius(dp(16));
-        if (stroke != 0) drawable.setStroke(dp(1), stroke);
-        return drawable;
-    }
+    private int dp(float value) { return UiStyle.dp(this, value); }
 
     private TextView text(String value, int size, int color) {
         TextView view = new TextView(this);
         view.setText(value); view.setTextSize(size); view.setTextColor(color);
-        view.setPadding(0, dp(5), 0, dp(5));
+        view.setPadding(0, dp(4), 0, dp(4));
         return view;
     }
 
     private void heading(String value) {
-        TextView title = text(value, 22, INK); title.setTypeface(null, Typeface.BOLD); body.addView(title);
+        TextView title = text(value, 21, INK);
+        title.setTypeface(null, Typeface.BOLD);
+        title.setPadding(0, dp(2), 0, dp(6));
+        body.addView(title);
     }
+
     private Button button(String title, Runnable click, boolean primary) {
         Button button = new Button(this);
         button.setText(title); button.setTextSize(15); button.setAllCaps(false);
+        button.setStateListAnimator(null);
+        button.setTypeface(null, primary ? Typeface.BOLD : Typeface.NORMAL);
         button.setTextColor(primary ? Color.WHITE : INK);
-        button.setBackground(background(primary ? PINK : 0xfff5eef1, 0));
+        button.setBackground(UiStyle.ripple(this,
+                primary ? PINK : UiStyle.ACCENT_SOFT,
+                primary ? 0 : UiStyle.ACCENT_BORDER,
+                primary ? 0f : 1f, 16f, primary ? UiStyle.RIPPLE_LIGHT : UiStyle.RIPPLE_PINK));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = dp(8); button.setMinHeight(dp(48)); body.addView(button, lp);
         button.setOnClickListener(view -> click.run());
@@ -95,13 +98,15 @@ public class PetToolsActivity extends Activity {
     private EditText input(String value, String hint, int max, boolean number) {
         EditText input = new EditText(this);
         input.setTextSize(16); input.setTextColor(INK); input.setHintTextColor(MUTED);
-        input.setPadding(dp(12), dp(10), dp(12), dp(10));
-        input.setBackground(background(Color.WHITE, 0xffe6dbe0));
+        input.setPadding(dp(14), dp(11), dp(14), dp(11));
+        input.setBackground(UiStyle.card(this, Color.WHITE, UiStyle.BORDER, 14f));
         input.setInputType(number ? InputType.TYPE_CLASS_NUMBER : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(max)});
         input.setHint(hint); input.setText(value); input.setGravity(Gravity.TOP);
         input.setMinLines(number ? 1 : 3); input.setMaxLines(number ? 1 : 7);
-        body.addView(input, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(4);
+        body.addView(input, lp);
         return input;
     }
 
@@ -116,9 +121,18 @@ public class PetToolsActivity extends Activity {
     private void render() {
         noteInput = minutesInput = taskInput = null; clock = null; lastStatus = store.status();
         body = new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(dp(20), dp(16), dp(20), dp(18));
-        body.setBackground(background(0xfffffbfc, 0xffeadfe4));
+        body.setPadding(dp(20), dp(12), dp(20), dp(18));
+        body.setBackground(UiStyle.gradientCard(this, 0xFFFFFDFB, 0xFFFCF4F7, 0xFFEADCE2, 24f));
         body.setFocusableInTouchMode(true);
+
+        // 顶部柔和装饰把手条
+        View handle = new View(this);
+        handle.setBackground(UiStyle.card(this, 0xFFE8D5DD, 0, 99f));
+        LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(dp(38), dp(4));
+        handleLp.gravity = Gravity.CENTER_HORIZONTAL;
+        handleLp.bottomMargin = dp(10);
+        body.addView(handle, handleLp);
+
         ScrollView scroll = new ScrollView(this) {
             @Override protected void onMeasure(int width, int height) {
                 int maximum = Math.round(getResources().getDisplayMetrics().heightPixels * .80f);
@@ -137,7 +151,9 @@ public class PetToolsActivity extends Activity {
             button("便利贴  ›", () -> go("note"), false);
             button("待办清单  ›", () -> go("tasks"), false);
         }
-        button("menu".equals(page) ? "收起菜单" : "‹ 返回工具箱", () -> { if ("menu".equals(page)) finish(); else go("menu"); }, false);
+        Button close = button("menu".equals(page) ? "收起菜单" : "‹ 返回工具箱", () -> { if ("menu".equals(page)) finish(); else go("menu"); }, false);
+        close.setBackground(UiStyle.ripple(this, Color.WHITE, UiStyle.BORDER, 1f, 16f, UiStyle.RIPPLE_PINK));
+        close.setTextColor(MUTED);
         body.requestFocus();
         positionWindow();
     }
@@ -161,9 +177,24 @@ public class PetToolsActivity extends Activity {
         heading("番茄钟");
         int status = store.status();
         if (status == PetToolsStore.RUNNING || status == PetToolsStore.PAUSED) {
-            if (status == PetToolsStore.PAUSED) body.addView(text("已暂停", 16, PINK));
-            clock = text(PetToolsStore.formatTime(store.remaining()), 44, PINK);
-            clock.setGravity(Gravity.CENTER); clock.setTypeface(Typeface.MONOSPACE, Typeface.BOLD); body.addView(clock);
+            LinearLayout dial = new LinearLayout(this);
+            dial.setOrientation(LinearLayout.VERTICAL);
+            dial.setGravity(Gravity.CENTER);
+            dial.setPadding(dp(12), dp(14), dp(12), dp(14));
+            dial.setBackground(UiStyle.card(this, Color.WHITE, UiStyle.ACCENT_BORDER, 18f));
+            LinearLayout.LayoutParams dialLp = new LinearLayout.LayoutParams(-1, -2);
+            dialLp.topMargin = dp(4); dialLp.bottomMargin = dp(6);
+            if (status == PetToolsStore.PAUSED) {
+                TextView paused = text("已暂停", 14, PINK);
+                paused.setGravity(Gravity.CENTER);
+                paused.setTypeface(null, Typeface.BOLD);
+                dial.addView(paused);
+            }
+            clock = text(PetToolsStore.formatTime(store.remaining()), 42, PINK);
+            clock.setGravity(Gravity.CENTER); clock.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+            dial.addView(clock);
+            body.addView(dial, dialLp);
+
             button(status == PetToolsStore.RUNNING ? "暂停" : "继续计时", () -> {
                 PetReminder.checkDue(this, store.token());
                 if (store.status() == PetToolsStore.PAUSED) {
@@ -180,12 +211,25 @@ public class PetToolsActivity extends Activity {
             button("知道了，收起提醒", () -> { PetReminder.acknowledge(this); render(); }, true);
             button("再休息 5 分钟", () -> startTimer(5), false);
         } else {
-            body.addView(text("倒计时分钟数", 16, INK));
+            body.addView(text("倒计时分钟数", 14, MUTED));
             minutesInput = input(minutesDraft == null ? "25" : minutesDraft, "分钟", 3, true);
-            LinearLayout choices = new LinearLayout(this); body.addView(choices);
-            for (int minutes : new int[]{15, 25, 45, 60}) {
-                Button preset = new Button(this); preset.setText(minutes + " 分"); preset.setTextSize(13); preset.setAllCaps(false);
-                choices.addView(preset, new LinearLayout.LayoutParams(0, dp(48), 1));
+            LinearLayout choices = new LinearLayout(this);
+            LinearLayout.LayoutParams choicesLp = new LinearLayout.LayoutParams(-1, -2);
+            choicesLp.topMargin = dp(10); choicesLp.bottomMargin = dp(2);
+            body.addView(choices, choicesLp);
+            int[] presets = {15, 25, 45, 60};
+            for (int i = 0; i < presets.length; i++) {
+                int minutes = presets[i];
+                Button preset = new Button(this);
+                preset.setText(minutes + " 分"); preset.setTextSize(13); preset.setAllCaps(false);
+                preset.setStateListAnimator(null);
+                preset.setTextColor(UiStyle.ACCENT_DARK);
+                preset.setTypeface(null, Typeface.BOLD);
+                preset.setBackground(UiStyle.ripple(this, Color.WHITE, UiStyle.ACCENT_BORDER, 1f, 12f, UiStyle.RIPPLE_PINK));
+                preset.setMinWidth(0); preset.setMinimumWidth(0); preset.setPadding(dp(2), 0, dp(2), 0);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(44), 1);
+                if (i > 0) lp.leftMargin = dp(6);
+                choices.addView(preset, lp);
                 preset.setOnClickListener(view -> minutesInput.setText(String.valueOf(minutes)));
             }
             button("开始专注", () -> {
@@ -264,8 +308,13 @@ public class PetToolsActivity extends Activity {
 
     private void renderRead() {
         heading("猫咪的便利贴");
-        TextView content = text(store.note(), 21, INK);
-        content.setTextIsSelectable(true); content.setLineSpacing(dp(5), 1); body.addView(content);
+        TextView content = text(store.note(), 20, INK);
+        content.setTextIsSelectable(true); content.setLineSpacing(dp(5), 1);
+        content.setPadding(dp(14), dp(14), dp(14), dp(14));
+        content.setBackground(UiStyle.card(this, 0xFFFFF8E8, 0xFFEEDAB8, 16f));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(4); lp.bottomMargin = dp(6);
+        body.addView(content, lp);
         button("编辑内容", () -> go("note"), true);
         if (store.notePinned()) button("收起牌子", () -> { store.pinNote(false); PetReminder.changed(this); finish(); }, false);
     }
@@ -279,11 +328,28 @@ public class PetToolsActivity extends Activity {
             else taskInput.setError(store.tasks().size() >= 20 ? "先清理已完成的事项吧" : "请输入待办内容");
         }, true);
         for (PetToolsStore.Task task : store.tasks()) {
-            CheckBox check = new CheckBox(this); check.setText(task.text); check.setTextColor(INK); check.setTextSize(16);
-            check.setPadding(0, dp(8), 0, dp(8)); check.setChecked(task.done); body.addView(check);
-            check.setOnCheckedChangeListener((view, checked) -> store.setTaskDone(task.id, checked));
+            CheckBox check = new CheckBox(this); check.setText(task.text); check.setTextSize(15);
+            check.setButtonTintList(ColorStateList.valueOf(PINK));
+            check.setPadding(dp(10), dp(10), dp(12), dp(10));
+            check.setBackground(UiStyle.card(this, Color.WHITE, UiStyle.BORDER, 14f));
+            check.setChecked(task.done);
+            applyTaskStyle(check, task.done);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+            lp.topMargin = dp(8);
+            body.addView(check, lp);
+            check.setOnCheckedChangeListener((view, checked) -> {
+                store.setTaskDone(task.id, checked);
+                applyTaskStyle(check, checked);
+            });
         }
         if (!store.tasks().isEmpty()) button("清理已完成", () -> { captureDrafts(); store.clearCompleted(); render(); }, false);
+    }
+
+    private void applyTaskStyle(CheckBox check, boolean done) {
+        check.setTextColor(done ? MUTED : INK);
+        check.setPaintFlags(done
+                ? (check.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG)
+                : (check.getPaintFlags() & ~Paint.STRIKE_THRU_TEXT_FLAG));
     }
 
     @Override public void onBackPressed() { if ("menu".equals(page)) super.onBackPressed(); else go("menu"); }
