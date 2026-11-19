@@ -93,4 +93,22 @@ public class DailyWeatherTest {
             reopened.close();
         }
     }
+
+    @Test public void mildSunnyWeatherAlsoBroadcastsDailySummaryOnce() {
+        Application app = RuntimeEnvironment.getApplication();
+        WindowManager manager = (WindowManager) app.getSystemService(Context.WINDOW_SERVICE);
+        WindowManager.LayoutParams cat = new WindowManager.LayoutParams();
+        cat.width = cat.height = 180;
+        long now = System.currentTimeMillis();
+        new Weather(22, now, false, 18, 25, 0).save(prefs.edit(), now);
+        WeatherWindow window = new WeatherWindow(app, manager);
+        try {
+            window.tick(cat, true);
+            ShadowSystemClock.advanceBy(Duration.ofSeconds(8));
+            window.tick(cat, true);
+            assertTrue(prefs.getLong("reminded", 0) > 0);
+        } finally {
+            window.close();
+        }
+    }
 }

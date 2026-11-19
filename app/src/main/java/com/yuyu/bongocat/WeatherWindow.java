@@ -16,6 +16,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 final class WeatherWindow {
+    static final int ICON_SUN = 0;
+    static final int ICON_RAIN = 1;
+    static final int ICON_COLD = 2;
+    static final int ICON_BATTERY = 3;
+    static final int ICON_MOON = 4;
+
     private final Context context;
     private final SharedPreferences prefs;
     private final WindowManager manager;
@@ -36,6 +42,8 @@ final class WeatherWindow {
         daily = new DailyWeather(prefs);
     }
 
+    boolean isShowing() { return cloud != null; }
+
     void tick(WindowManager.LayoutParams cat, boolean canShow) {
         String coords = prefs.getString("coords", "");
         if (!coords.equals(currentCity)) {
@@ -52,12 +60,44 @@ final class WeatherWindow {
             if (!loading && daily.beginCheck(now, zone)) refresh(coords);
             return;
         }
-        if (!canShow || cloud != null || !Weather.fresh(prefs.getLong("observed", 0), now, 2*Weather.HOUR)) return;
-        boolean cold = Weather.cold(prefs.getFloat("temp", 99));
-        boolean rain = prefs.getBoolean("rain", false);
-        if ((cold || rain) && show(cat, cold, rain)) {
+        if (!canShow || cloud != null || !Weather.fresh(prefs.getLong("observed", 0), now, 2 * Weather.HOUR)) return;
+        if (showWeatherNow(cat)) {
             prefs.edit().putLong("reminded", now).apply();
         }
+    }
+
+    /** 主动预览今日天气云朵播报（供天气窗台手动触发）。 */
+    boolean previewWeather(WindowManager.LayoutParams cat) {
+        if (closed) return false;
+        long now = System.currentTimeMillis();
+        if (Weather.fresh(prefs.getLong("observed", 0), now, 2 * Weather.HOUR)) {
+            hide();
+            return showWeatherNow(cat);
+        }
+        String coords = prefs.getString("coords", "");
+        if (coords.isEmpty()) return false;
+        refresh(coords);
+        return false;
+    }
+
+    private boolean showWeatherNow(WindowManager.LayoutParams cat) {
+        double temp = prefs.getFloat("temp", 99);
+        double minTemp = prefs.contains("tempMin") ? prefs.getFloat("tempMin", Float.NaN) : Double.NaN;
+        double maxTemp = prefs.contains("tempMax") ? prefs.getFloat("tempMax", Float.NaN) : Double.NaN;
+        boolean rain = prefs.getBoolean("rain", false);
+        boolean cold = Weather.cold(temp, minTemp);
+        int icon = rain ? ICON_RAIN : (cold ? ICON_COLD : ICON_SUN);
+        int accent = (rain || cold) ? 0xFFC9557D : 0xFF3E8C63;
+        return showBubble(cat, Weather.headline(temp, rain),
+                Weather.advice(temp, minTemp, maxTemp, rain), icon, accent, 10000);
+    }
+
+    /** 用同款手绘云朵播报低电量或早安/晚安问候。 */
+    boolean showMessage(WindowManager.LayoutParams cat, String line1, String line2, int icon, long durationMs) {
+        if (closed || cat == null) return false;
+        hide();
+        int accent = icon == ICON_BATTERY ? 0xFFD9534F : (icon == ICON_MOON ? 0xFF6A6DA8 : 0xFFD96B90);
+        return showBubble(cat, line1, line2, icon, accent, durationMs);
     }
 
     private void refresh(String coords) {
@@ -74,10 +114,11 @@ final class WeatherWindow {
         });
     }
 
-    private boolean show(WindowManager.LayoutParams cat, boolean cold, boolean rain) {
+    private boolean showBubble(WindowManager.LayoutParams cat, String line1, String line2,
+                               int icon, int accentColor, long durationMs) {
         float density = context.getResources().getDisplayMetrics().density;
-        cloud = new Bubble(context, cold, rain);
-        window = new WindowManager.LayoutParams(Math.round(134*density), Math.round((cold && rain ? 65 : 49)*density),
+        cloud = new Bubble(context, line1, line2, icon, accentColor);
+        window = new WindowManager.LayoutParams(Math.round(196 * density), Math.round(70 * density),
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
                 PixelFormat.TRANSLUCENT);
@@ -87,15 +128,15 @@ final class WeatherWindow {
         if (!place(cat)) { cloud = null; return false; }
         try { manager.addView(cloud, window); }
         catch (RuntimeException error) { cloud = null; return false; }
-        handler.postDelayed(dismiss, 9000);
+        handler.postDelayed(dismiss, durationMs);
         return true;
     }
 
     private boolean place(WindowManager.LayoutParams cat) {
         Point screen = new Point();
         manager.getDefaultDisplay().getSize(screen);
-        window.x = Math.max(0, Math.min(screen.x-window.width, cat.x+(cat.width-window.width)/2));
-        window.y = Math.max(0, cat.y-window.height + cat.height/8);
+        window.x = Math.max(0, Math.min(screen.x - window.width, cat.x + (cat.width - window.width) / 2));
+        window.y = Math.max(0, cat.y - window.height + cat.height / 8);
         if ((cat.flags & WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE) != 0) {
             // 穿透时把云朵放在猫窗外，避免两个窗口的遮挡率叠加。
             if (cat.y >= window.height) window.y = cat.y - window.height;
@@ -127,54 +168,122 @@ final class WeatherWindow {
         worker.shutdownNow();
     }
 
-    private static final class Bubble extends View {
-        private final boolean cold, rain;
+    static final class Bubble extends View {
+        private final int icon, accentColor;
+        private final String line1, line2;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        Bubble(Context context, boolean cold, boolean rain) {
-            super(context);
-            this.cold = cold;
-            this.rain = rain;
-            setContentDescription((cold ? "记到加衣服" : "") + (rain ? " 出门记得带伞" : ""));
+
+        Bubble(Context context, double temp, double minTemp, double maxTemp, boolean rain) {
+            this(context,
+                    Weather.headline(temp, rain),
+                    Weather.advice(temp, minTemp, maxTemp, rain),
+                    rain ? ICON_RAIN : (Weather.cold(temp, minTemp) ? ICON_COLD : ICON_SUN),
+                    (rain || Weather.cold(temp, minTemp)) ? 0xFFC9557D : 0xFF3E8C63);
         }
+
+        Bubble(Context context, String line1, String line2, int icon, int accentColor) {
+            super(context);
+            this.line1 = line1;
+            this.line2 = line2;
+            this.icon = icon;
+            this.accentColor = accentColor;
+            setContentDescription(line1 + "，" + line2);
+        }
+
         @Override protected void onDraw(Canvas canvas) {
-            float h = cold && rain ? 65 : 49;
+            float w = 196f, h = 70f;
             canvas.save();
-            canvas.scale(getWidth()/134f, getHeight()/h);
+            canvas.scale(getWidth() / w, getHeight() / h);
+
             Path outline = new Path();
-            outline.moveTo(23, h-10);
-            outline.cubicTo(1,h-9, 0,17, 20,16);
-            outline.cubicTo(21,3, 38,0, 48,8);
-            outline.cubicTo(61,-1, 78,1, 84,9);
-            outline.cubicTo(96,3, 114,6, 116,16);
-            outline.cubicTo(134,16, 137,h-10, 114,h-10);
-            outline.lineTo(73,h-10);
-            outline.quadTo(70,h-4,61,h-2);
-            outline.lineTo(63,h-10);
+            outline.moveTo(28, h - 11);
+            outline.cubicTo(4, h - 10, 2, 19, 24, 17);
+            outline.cubicTo(26, 3, 50, 1, 64, 9);
+            outline.cubicTo(82, -1, 114, 1, 126, 9);
+            outline.cubicTo(144, 2, 169, 6, 172, 17);
+            outline.cubicTo(194, 18, 194, h - 10, 168, h - 11);
+            outline.lineTo(106, h - 11);
+            outline.quadTo(102, h - 4, 92, h - 2);
+            outline.lineTo(95, h - 11);
             outline.close();
+
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(0xfffffaf5);
-            canvas.drawPath(outline,paint);
+            paint.setColor(0xFFFFFBF6);
+            canvas.drawPath(outline, paint);
+
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(1.8f);
-            paint.setColor(0xff594e59);
-            canvas.drawPath(outline,paint);
+            paint.setColor(0xFF4F4452);
+            canvas.drawPath(outline, paint);
+
+            drawIcon(canvas);
+
             paint.setStyle(Paint.Style.FILL);
-            paint.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));
+            paint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
             paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTextSize(14);
-            if (cold) canvas.drawText("记到加衣服",67,29,paint);
-            if (rain) {
-                float y = cold ? 47 : 29;
-                canvas.drawText("出门记得带伞",76,y,paint);
-                paint.setColor(0xffcc668c);
-                canvas.drawArc(16,y-12,34,y+6,180,180,true,paint);
+            paint.setTextSize(13.5f);
+            paint.setColor(0xFF3E3440);
+            canvas.drawText(line1, 108, 29, paint);
+
+            paint.setTextSize(11.8f);
+            paint.setColor(accentColor);
+            canvas.drawText(line2, 108, 48, paint);
+
+            canvas.restore();
+        }
+
+        private void drawIcon(Canvas canvas) {
+            float cx = 27f, cy = 36f;
+            if (icon == ICON_RAIN) {
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(0xFFD96B90);
+                canvas.drawArc(cx - 9, cy - 10, cx + 9, cy + 8, 180, 180, true, paint);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(1.7f);
+                paint.setStrokeCap(Paint.Cap.ROUND);
+                Path handle = new Path();
+                handle.moveTo(cx, cy - 1);
+                handle.lineTo(cx, cy + 5.5f);
+                handle.quadTo(cx, cy + 9.5f, cx - 3.8f, cy + 7.2f);
+                canvas.drawPath(handle, paint);
+            } else if (icon == ICON_COLD) {
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setColor(0xFF5D9BD5);
+                paint.setStrokeWidth(1.7f);
+                paint.setStrokeCap(Paint.Cap.ROUND);
+                for (int i = 0; i < 3; i++) {
+                    double a = i * Math.PI / 3.0;
+                    float dx = (float) Math.cos(a) * 7.5f, dy = (float) Math.sin(a) * 7.5f;
+                    canvas.drawLine(cx - dx, cy - dy, cx + dx, cy + dy, paint);
+                }
+            } else if (icon == ICON_BATTERY) {
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setColor(0xFFD9534F);
+                paint.setStrokeWidth(1.8f);
+                canvas.drawRoundRect(cx - 8.5f, cy - 5.5f, cx + 7f, cy + 5.5f, 2f, 2f, paint);
+                paint.setStyle(Paint.Style.FILL);
+                canvas.drawRect(cx + 7.5f, cy - 2.5f, cx + 10f, cy + 2.5f, paint);
+                canvas.drawRect(cx - 6f, cy - 3f, cx - 2.5f, cy + 3f, paint);
+            } else if (icon == ICON_MOON) {
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(0xFF7D85C4);
+                canvas.drawCircle(cx, cy, 7.5f, paint);
+                paint.setColor(0xFFFFFBF6);
+                canvas.drawCircle(cx + 3.8f, cy - 2.2f, 6.4f, paint);
+            } else {
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(0xFFF4B643);
+                canvas.drawCircle(cx, cy, 4.8f, paint);
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(1.6f);
-                Path handle = new Path();
-                handle.moveTo(25,y-4); handle.lineTo(25,y+1); handle.quadTo(25,y+6,21,y+3);
-                canvas.drawPath(handle,paint);
+                paint.setStrokeCap(Paint.Cap.ROUND);
+                for (int i = 0; i < 8; i++) {
+                    double a = i * Math.PI / 4.0;
+                    canvas.drawLine(
+                            cx + (float) Math.cos(a) * 6.8f, cy + (float) Math.sin(a) * 6.8f,
+                            cx + (float) Math.cos(a) * 9.2f, cy + (float) Math.sin(a) * 9.2f, paint);
+                }
             }
-            canvas.restore();
         }
     }
 }

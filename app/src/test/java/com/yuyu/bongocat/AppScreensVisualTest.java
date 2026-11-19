@@ -44,5 +44,9 @@ public class AppScreensVisualTest {
             ViewGroup content = weather.get().findViewById(android.R.id.content);
             capture(content.getChildAt(0), 1233, 2673, "weather-screen");
         }
+        Application app = org.robolectric.RuntimeEnvironment.getApplication();
+        capture(new WeatherWindow.Bubble(app, 9, 7, 13, true), 588, 210, "bubble-cold-rain");
+        capture(new WeatherWindow.Bubble(app, 10, 8, 15, false), 588, 210, "bubble-cold-dry");
+        capture(new WeatherWindow.Bubble(app, 22, 18, 26, false), 588, 210, "bubble-sunny");
     }
 }

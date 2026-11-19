@@ -6,13 +6,15 @@ import {buildArt} from './rive/bongocat-art.mjs';
 import {buildAnimations} from './rive/bongocat-motion.mjs';
 import {addInteractions} from './rive/interactions.mjs';
 import {addSleepPoses} from './rive/sleep.mjs';
+import {addWardrobe} from './rive/wardrobe.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 // 沿用原有状态图和绑定 ID，只替换角色部件与动作轨道。
 const behavior=JSON.parse(fs.readFileSync(path.join(root,'tools/rive/behavior.json'),'utf8'));
 addSleepPoses(behavior);
 addInteractions(behavior);
-const art=buildArt(behavior.costumeIds,behavior.animations);
+addWardrobe(behavior);
+const art=buildArt(behavior.costumeIds,behavior.animations,behavior.patternIds);
 art.tail.extraXml=art.skin.boneXml();
 const scene=tag('Rive',{version:1,kind:'fragment'},tag('Artboard',behavior.artboard,
   behavior.support.join('\n')+renderRml(art.zzz)+renderRml(art.pet,art.skin)+

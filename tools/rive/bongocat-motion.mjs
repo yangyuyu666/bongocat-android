@@ -1,6 +1,7 @@
 import {nodes,tag,number} from './vector.mjs';
 import {addArmDefaults,solveForelimbs} from './forelimbs.mjs';
 import {actionProgressTrack} from './interactions.mjs';
+import {WARDROBE_NODE_NAMES} from './wardrobe.mjs';
 
 const clamp01=x=>Math.max(0,Math.min(1,x));
 const smooth=x=>{x=clamp01(x);return x*x*(3-2*x);};
@@ -8,7 +9,7 @@ const smoother=x=>{x=clamp01(x);return x*x*x*(x*(x*6-15)+10);};
 const easeOutBack=(x,s=1.45)=>{x=clamp01(x);const t=x-1;return 1+t*t*((s+1)*t+s);};
 const envelope=(f,a,b,c,d)=>smoother((f-a)/(b-a))*(1-smoother((f-c)/(d-c)));
 const props=['x','y','rotation','scaleX','scaleY','opacity'];
-const costumeNames=['Bow','Hat','Crown','Flower','Scarf'];
+const costumeNames=WARDROBE_NODE_NAMES;
 const eyeOpacityNodes=new Set(['Eye Left','Eye Right','Lid Left','Lid Right','Happy Lid Left','Happy Lid Right']);
 const lie={
   Torso:{x:20,y:55,scaleX:1.18,scaleY:.48},
@@ -367,7 +368,7 @@ export function buildAnimations(definitions,skin,arms,frameArt) {
     const {name,duration}=def.attributes,frames=Number(duration);
     let controls=def.tracks.join('\n');
     if(name==='Sit_To_Crawl')controls=controls.replace('value="0"','value="-1"');
-    if(name==='Inactivity'||name.startsWith('Costume'))return tag('LinearAnimation',def.attributes,controls);
+    if(name==='Inactivity'||name.startsWith('Costume')||name.startsWith('Pattern'))return tag('LinearAnimation',def.attributes,controls);
     const step=2;
     const times=frameArt.animations.get(name)?.map(row=>row.frame)||Array.from({length:Math.floor(frames/step)+1},(_,i)=>i*step);
     if(times.at(-1)!==frames)times.push(frames);

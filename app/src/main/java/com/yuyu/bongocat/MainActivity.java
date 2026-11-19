@@ -17,6 +17,7 @@ import android.text.style.StyleSpan;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -28,10 +29,13 @@ public class MainActivity extends Activity {
     private static final int REQ_OVERLAY = 1;
     private PetSettings settings;
     private RiveView preview;
-    private TextView statusPill;
-    private Button btnActions, btnTools, btnWeather;
+    private TextView statusPill, bondTitle, bondDetail;
+    private ProgressBar bondProgress;
+    private Button btnActions, btnTools, btnWeather, btnFeed;
+    private Switch touchThrough, musicDance, weatherCostume, hapticEnabled;
     private boolean waitingForOverlay;
     private final java.util.List<Button> costumeButtons = new java.util.ArrayList<Button>();
+    private final java.util.List<Button> patternButtons = new java.util.ArrayList<Button>();
     private final java.util.List<Button> colorButtons = new java.util.ArrayList<Button>();
 
     @Override
@@ -46,20 +50,24 @@ public class MainActivity extends Activity {
         styleStaticContainers();
 
         preview = findViewById(R.id.preview_cat);
+        preview.setBondListener(this::refreshBondCard);
         applyPreview();
 
+        bondTitle = findViewById(R.id.bond_title);
+        bondDetail = findViewById(R.id.bond_detail);
+        bondProgress = findViewById(R.id.bond_progress);
+        bondProgress.setProgressTintList(ColorStateList.valueOf(UiStyle.ACCENT));
+        bondProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0xFFF3E4EA));
+        btnFeed = findViewById(R.id.btn_feed);
+        UiStyle.styleSecondaryButton(this, btnFeed);
+        btnFeed.setOnClickListener(v -> feedFish());
+        refreshBondCard();
+
         buildCostumeRow();
+        buildPatternRow();
         buildColorRow();
         buildSliders();
-
-        Switch touchThrough = findViewById(R.id.touch_through);
-        touchThrough.setChecked(settings.isTouchThrough());
-        touchThrough.setThumbTintList(ColorStateList.valueOf(UiStyle.ACCENT));
-        touchThrough.setTrackTintList(ColorStateList.valueOf(0xFFEBD3DC));
-        touchThrough.setOnCheckedChangeListener((button, enabled) -> {
-            settings.setTouchThrough(enabled);
-            refresh();
-        });
+        buildSwitches();
 
         refreshButtonStates();
 
@@ -80,6 +88,7 @@ public class MainActivity extends Activity {
         btnHide.setOnClickListener(v -> {
             settings.setVisible(false);
             stopService(new Intent(MainActivity.this, FloatingPetService.class));
+            PetQuickTileService.requestSync(this);
             refreshStatusPill();
             Toast.makeText(MainActivity.this, "猫收起来了", Toast.LENGTH_SHORT).show();
         });
@@ -88,11 +97,64 @@ public class MainActivity extends Activity {
         refreshStatusPill();
     }
 
+    private void buildSwitches() {
+        touchThrough = styleSwitch(R.id.touch_through, settings.isTouchThrough(), enabled -> {
+            settings.setTouchThrough(enabled);
+            refresh();
+        });
+        musicDance = styleSwitch(R.id.music_dance, settings.isMusicDanceEnabled(), enabled -> {
+            settings.setMusicDanceEnabled(enabled);
+            refresh();
+        });
+        weatherCostume = styleSwitch(R.id.weather_costume, settings.isWeatherCostumeEnabled(), enabled -> {
+            settings.setWeatherCostumeEnabled(enabled);
+            refresh();
+        });
+        hapticEnabled = styleSwitch(R.id.haptic_enabled, settings.isHapticEnabled(), enabled -> {
+            settings.setHapticEnabled(enabled);
+            refresh();
+        });
+    }
+
+    private Switch styleSwitch(int id, boolean checked, java.util.function.Consumer<Boolean> onToggle) {
+        Switch sw = findViewById(id);
+        sw.setChecked(checked);
+        sw.setThumbTintList(ColorStateList.valueOf(UiStyle.ACCENT));
+        sw.setTrackTintList(ColorStateList.valueOf(0xFFEBD3DC));
+        sw.setOnCheckedChangeListener((button, enabled) -> onToggle.accept(enabled));
+        return sw;
+    }
+
+    private void feedFish() {
+        PetBondStore bond = new PetBondStore(this);
+        if (bond.feedFish()) {
+            preview.playAction("playLick");
+            preview.burstHearts();
+            preview.triggerHaptic();
+            refreshBondCard();
+            Toast.makeText(this, "喂了小鱼干，亲密度 +6！", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "小鱼干不足（摸头、完成待办或番茄钟可获得）", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void refreshBondCard() {
+        if (bondTitle == null) return;
+        PetBondStore bond = new PetBondStore(this);
+        bondTitle.setText("Lv." + bond.level() + " " + bond.levelTitle());
+        bondDetail.setText(bond.nextLevelHint() + " · 小鱼干 " + bond.fish());
+        bondProgress.setProgress(bond.progressPercent());
+        btnFeed.setText("喂小鱼干 (" + PetBondStore.FEED_COST + ")");
+    }
+
     private void styleStaticContainers() {
         View stage = findViewById(R.id.stage_card);
         stage.setBackground(UiStyle.gradientCard(this, UiStyle.STAGE_TOP, UiStyle.STAGE_BOTTOM, UiStyle.BORDER, 24f));
         View hint = findViewById(R.id.stage_hint);
         hint.setBackground(UiStyle.card(this, 0xCCFFFFFF, 0xFFF2E2E8, 99f));
+
+        View bond = findViewById(R.id.card_bond);
+        bond.setBackground(UiStyle.card(this, UiStyle.SURFACE, UiStyle.BORDER, 20f));
 
         View appearance = findViewById(R.id.card_appearance);
         appearance.setBackground(UiStyle.card(this, UiStyle.SURFACE, UiStyle.BORDER, 22f));
@@ -121,10 +183,16 @@ public class MainActivity extends Activity {
 
         SharedPreferences weatherPrefs = Weather.preferences(this);
         String city = weatherPrefs.getString("city", "");
-        String weatherSub = city.isEmpty() ? "选择城市"
-                : Weather.fresh(weatherPrefs.getLong("observed", 0), System.currentTimeMillis(), 2 * Weather.HOUR)
-                ? city + " " + Math.round(weatherPrefs.getFloat("temp", 0)) + "°"
-                : city;
+        String shortCity = city.contains("·") ? city.substring(city.lastIndexOf('·') + 1) : city;
+        String weatherSub;
+        if (city.isEmpty()) {
+            weatherSub = "选择位置";
+        } else if (Weather.fresh(weatherPrefs.getLong("observed", 0), System.currentTimeMillis(), 2 * Weather.HOUR)) {
+            boolean rain = weatherPrefs.getBoolean("rain", false);
+            weatherSub = shortCity + " " + Math.round(weatherPrefs.getFloat("temp", 0)) + "°" + (rain ? " 有雨" : "");
+        } else {
+            weatherSub = shortCity;
+        }
         styleHubButton(btnWeather, "天气窗台", weatherSub, 0xFFF2F8FE, 0xFFCFE2F5);
     }
 
@@ -143,22 +211,11 @@ public class MainActivity extends Activity {
     private void buildCostumeRow() {
         LinearLayout container = findViewById(R.id.costume_row);
         LinearLayout row = null;
+        int cols = 4;
         for (int i = 0; i < PetSettings.COSTUME_NAMES.length; i++) {
-            if (i % 3 == 0) row = addButtonRow(container, i > 0);
+            if (i % cols == 0) row = addButtonRow(container, i > 0);
             final int idx = i;
-            Button b = new Button(this);
-            b.setText(PetSettings.COSTUME_NAMES[i]);
-            b.setTextSize(13);
-            b.setAllCaps(false);
-            b.setStateListAnimator(null);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            lp.setMargins(dp(3), 0, dp(3), 0);
-            b.setMinWidth(0);
-            b.setMinimumWidth(0);
-            b.setMinHeight(dp(46));
-            b.setPadding(dp(4), 0, dp(4), 0);
-            b.setLayoutParams(lp);
+            Button b = choiceChip(PetSettings.COSTUME_NAMES[i], 12);
             b.setOnClickListener(v -> {
                 settings.setCostume(idx);
                 refresh();
@@ -166,6 +223,48 @@ public class MainActivity extends Activity {
             row.addView(b);
             costumeButtons.add(b);
         }
+        // 最后一行补齐占位保持对齐。
+        int rem = PetSettings.COSTUME_NAMES.length % cols;
+        if (rem != 0 && row != null) {
+            for (int k = rem; k < cols; k++) {
+                View spacer = new View(this);
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, 1, 1f);
+                lp.setMargins(dp(3), 0, dp(3), 0);
+                row.addView(spacer, lp);
+            }
+        }
+    }
+
+    private void buildPatternRow() {
+        LinearLayout container = findViewById(R.id.pattern_row);
+        LinearLayout row = addButtonRow(container, false);
+        for (int i = 0; i < PetSettings.PATTERN_NAMES.length; i++) {
+            final int idx = i;
+            Button b = choiceChip(PetSettings.PATTERN_NAMES[i], 12);
+            b.setOnClickListener(v -> {
+                settings.setPattern(idx);
+                refresh();
+            });
+            row.addView(b);
+            patternButtons.add(b);
+        }
+    }
+
+    private Button choiceChip(String text, float textSizeSp) {
+        Button b = new Button(this);
+        b.setText(text);
+        b.setTextSize(textSizeSp);
+        b.setAllCaps(false);
+        b.setStateListAnimator(null);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        lp.setMargins(dp(3), 0, dp(3), 0);
+        b.setMinWidth(0);
+        b.setMinimumWidth(0);
+        b.setMinHeight(dp(44));
+        b.setPadding(dp(2), 0, dp(2), 0);
+        b.setLayoutParams(lp);
+        return b;
     }
 
     private int dp(int value) {
@@ -183,7 +282,10 @@ public class MainActivity extends Activity {
 
     private void refreshButtonStates() {
         for (int i = 0; i < costumeButtons.size(); i++) {
-            styleCostumeChoice(costumeButtons.get(i), i == settings.getCostume());
+            styleChipChoice(costumeButtons.get(i), i == settings.getCostume());
+        }
+        for (int i = 0; i < patternButtons.size(); i++) {
+            styleChipChoice(patternButtons.get(i), i == settings.getPattern());
         }
         for (int i = 0; i < colorButtons.size(); i++) {
             styleColorChoice(colorButtons.get(i), PetSettings.COLOR_NAMES[i],
@@ -191,7 +293,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void styleCostumeChoice(Button button, boolean selected) {
+    private void styleChipChoice(Button button, boolean selected) {
         button.setSelected(selected);
         button.setBackground(UiStyle.ripple(this,
                 selected ? UiStyle.ACCENT_SOFT : UiStyle.SURFACE_SOFT,
@@ -220,19 +322,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < PetSettings.COLOR_NAMES.length; i++) {
             if (i % 4 == 0) row = addButtonRow(container, i > 0);
             final int idx = i;
-            Button b = new Button(this);
-            b.setText(PetSettings.COLOR_NAMES[i]);
-            b.setTextSize(12);
-            b.setAllCaps(false);
-            b.setStateListAnimator(null);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            lp.setMargins(dp(3), 0, dp(3), 0);
-            b.setMinWidth(0);
-            b.setMinimumWidth(0);
-            b.setMinHeight(dp(46));
-            b.setPadding(dp(2), 0, dp(2), 0);
-            b.setLayoutParams(lp);
+            Button b = choiceChip(PetSettings.COLOR_NAMES[i], 12);
             b.setOnClickListener(v -> {
                 settings.setColor(idx);
                 refresh();
@@ -318,6 +408,7 @@ public class MainActivity extends Activity {
         }
         settings.setVisible(true);
         startForegroundService(new Intent(this, FloatingPetService.class));
+        PetQuickTileService.requestSync(this);
         refreshStatusPill();
         Toast.makeText(this, "已显示悬浮猫", Toast.LENGTH_SHORT).show();
     }
@@ -342,8 +433,14 @@ public class MainActivity extends Activity {
             settings.setVisible(false);
             stopService(new Intent(this, FloatingPetService.class));
         }
+        touchThrough.setChecked(settings.isTouchThrough());
+        musicDance.setChecked(settings.isMusicDanceEnabled());
+        weatherCostume.setChecked(settings.isWeatherCostumeEnabled());
+        hapticEnabled.setChecked(settings.isHapticEnabled());
+        applyPreview();
         refreshStatusPill();
         refreshHubCards();
+        refreshBondCard();
     }
 
     @Override protected void onSaveInstanceState(Bundle outState) {

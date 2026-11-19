@@ -96,16 +96,77 @@
             android:paddingEnd="12dp"
             android:paddingTop="4dp"
             android:paddingBottom="4dp"
-            android:text="点点小猫的头、鼻子、爪子或尾巴试试"
+            android:text="摸头冒爱心 · 戳鼻冒问号 · 甩到屏幕边缘半藏"
             android:textColor="#9A8999"
             android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- 陪伴亲密度与小鱼干卡片 -->
+    <LinearLayout
+        android:id="@+id/card_bond"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/bond_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Lv.1 初次相遇"
+                android:textColor="#3E3440"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/bond_detail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="亲密 0 / 30 · 小鱼干 5"
+                android:textColor="#887C8B"
+                android:textSize="12sp" />
+
+            <ProgressBar
+                android:id="@+id/bond_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:layout_marginTop="6dp"
+                android:layout_marginEnd="12dp"
+                android:max="100"
+                android:progress="0" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btn_feed"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:text="喂小鱼干"
+            android:textSize="13sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <!-- 主控操作条：显示 / 收起悬浮猫 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="12dp"
         android:orientation="horizontal">
 
         <Button
@@ -169,7 +230,7 @@
             android:gravity="center"
             android:lineSpacingExtra="2dp"
             android:padding="8dp"
-            android:text="天气窗台\n选择城市"
+            android:text="天气窗台\n选择位置"
             android:textSize="13sp" />
     </LinearLayout>
 
@@ -216,6 +277,28 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:text="花纹"
+            android:textColor="#887C8B"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:id="@+id/pattern_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="14dp"
+            android:background="#F3EAE5" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:text="毛色"
             android:textColor="#887C8B"
             android:textSize="13sp"
@@ -241,7 +324,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="悬浮窗设置"
+            android:text="悬浮窗与陪伴设置"
             android:textColor="#3E3440"
             android:textSize="17sp"
             android:textStyle="bold" />
@@ -292,8 +375,8 @@
             android:id="@+id/touch_through"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:minHeight="48dp"
+            android:layout_marginTop="6dp"
+            android:minHeight="46dp"
             android:text="触摸穿透"
             android:textColor="#3E3440"
             android:textSize="15sp"
@@ -302,8 +385,63 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="开启后点击可穿透悬浮猫，直接操作下方应用"
+            android:text="开启后点击直接穿透小猫，通知栏也可随时一键切换"
             android:textColor="#887C8B"
+            android:textSize="12sp" />
+
+        <Switch
+            android:id="@+id/music_dance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="46dp"
+            android:text="听歌跟着打拍子"
+            android:textColor="#3E3440"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="检测到音乐播放时自动拍爪晃头并飘出音符"
+            android:textColor="#887C8B"
+            android:textSize="12sp" />
+
+        <Switch
+            android:id="@+id/weather_costume"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="46dp"
+            android:text="随天气自动换装"
+            android:textColor="#3E3440"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="下雨自动戴雨帽、降温裹围巾、晴热戴墨镜"
+            android:textColor="#887C8B"
+            android:textSize="12sp" />
+
+        <Switch
+            android:id="@+id/haptic_enabled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="46dp"
+            android:text="互动轻震动"
+            android:textColor="#3E3440"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="小贴士：下拉手机快捷面板可添加「桌面小猫」磁贴；插电会冒小闪电"
+            android:textColor="#9A8999"
             android:textSize="12sp" />
     </LinearLayout>
 

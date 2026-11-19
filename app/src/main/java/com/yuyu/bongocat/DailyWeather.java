@@ -38,7 +38,10 @@ final class DailyWeather {
     void setCity(String name, String coords) {
         SharedPreferences.Editor edit = prefs.edit().putString("city", name).putString("coords", coords);
         // 换城后丢弃旧预报，保留当天的调用和提醒记录。
-        if (!coords.equals(prefs.getString("coords", ""))) edit.remove("observed").remove("temp").remove("rain").remove("attempted");
+        if (!coords.equals(prefs.getString("coords", ""))) {
+            edit.remove("observed").remove("temp").remove("tempMin").remove("tempMax")
+                    .remove("weatherCode").remove("rain").remove("attempted");
+        }
         edit.apply();
     }
 }

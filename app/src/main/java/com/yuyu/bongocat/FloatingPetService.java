@@ -5,15 +5,17 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.Intent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.hardware.input.InputManager;
+import android.media.AudioManager;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -26,11 +28,14 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.widget.Toast;
+import java.time.ZoneId;
 
-/** 显示可拖动的悬浮猫，原地更新外观并保存拖动坐标。 */
+/** 显示可拖动的悬浮猫，支持贴边躲藏、听歌律动、充电小闪电、低电量与昼夜提醒。 */
 public class FloatingPetService extends Service {
     public static final String ACTION_UPDATE_SETTINGS = "com.yuyu.bongocat.UPDATE_SETTINGS";
     public static final String ACTION_PLAY = "com.yuyu.bongocat.PLAY_ACTION";
+    public static final String ACTION_PREVIEW_WEATHER = "com.yuyu.bongocat.PREVIEW_WEATHER";
+    public static final String ACTION_TOGGLE_TOUCH_THROUGH = "com.yuyu.bongocat.TOGGLE_TOUCH_THROUGH";
     public static final String EXTRA_TRIGGER = "trigger";
     private static final String ACTION_HIDE = "com.yuyu.bongocat.HIDE";
     private static final String CHANNEL_ID = "floating_pet";
@@ -39,6 +44,7 @@ public class FloatingPetService extends Service {
     private static final float LYING_ASPECT = 1.5f;
 
     private WindowManager windowManager;
+    private AudioManager audioManager;
     private PetSettings settings;
     private RiveView catView;
     private WindowManager.LayoutParams params;
@@ -49,32 +55,105 @@ public class FloatingPetService extends Service {
     private boolean touching;
     private boolean moved;
     private int touchSlop;
-    private float downX, downY;
+    private float downX, downY, lastRawX, lastStepDx;
     private int downParamX, downParamY;
     private final CrawlMotion crawlMotion = new CrawlMotion();
     private final EdgePeekMotion edge = new EdgePeekMotion();
     private int petBase, edgePhase, edgeWidth, edgeHeight;
+    private int sideDock, undockX;
     private boolean lastLandscape, edgeOverride;
     private long touchStarted;
     private Runnable pendingManualAction;
     private PetToolsStore tools;
     private boolean holdingSign;
     private WeatherWindow weatherWindow;
+    private boolean lowBatteryNotified;
+    private int musicBeats;
+
     private final BroadcastReceiver toolsChanged = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) { refreshTools(); }
     };
+
+    private final BroadcastReceiver powerReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (!attached || catView == null || intent == null) return;
+            String action = intent.getAction();
+            if (Intent.ACTION_POWER_CONNECTED.equals(action)) {
+                lowBatteryNotified = false;
+                if (sideDock == 0 && !edge.active) {
+                    catView.burstLightning();
+                    if (!holdingSign) catView.playAction("playTail");
+                    catView.triggerHaptic();
+                }
+            } else if (Intent.ACTION_BATTERY_CHANGED.equals(action)) {
+                int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100);
+                int plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
+                if (level < 0 || scale <= 0) return;
+                int pct = level * 100 / scale;
+                if (plugged != 0 || pct > 20) {
+                    lowBatteryNotified = false;
+                } else if (pct <= 15 && !lowBatteryNotified && sideDock == 0 && !edge.active && !holdingSign) {
+                    lowBatteryNotified = true;
+                    catView.playAction("playYawn");
+                    weatherWindow.showMessage(params, "电量低啦 (" + pct + "%)", "记得给手机充电哦",
+                            WeatherWindow.ICON_BATTERY, 8500);
+                }
+            }
+        }
+    };
+
     private final Runnable toolTick = new Runnable() {
         @Override public void run() {
             PetReminder.checkDue(FloatingPetService.this, tools.token());
             refreshTools();
-            if (attached) weatherWindow.tick(params, !touching && !holdingSign
-                    && (!edge.active || edgeOverride || edge.phase == EdgePeekMotion.PEEK));
+            if (attached) {
+                // 随天气自动换装开启时同步刷新配饰。
+                if (settings.isWeatherCostumeEnabled() && catView != null) {
+                    catView.applySettings(settings);
+                    catView.setAlpha(1f);
+                }
+                weatherWindow.tick(params, !touching && !holdingSign && sideDock == 0
+                        && (!edge.active || edgeOverride || edge.phase == EdgePeekMotion.PEEK));
+            }
             handler.postDelayed(this, 1000);
         }
     };
+
+    private final Runnable musicTick = new Runnable() {
+        @Override public void run() {
+            if (!attached) return;
+            if (settings.isMusicDanceEnabled() && audioManager != null && audioManager.isMusicActive()
+                    && !touching && !holdingSign && !edge.active && sideDock == 0 && catView != null) {
+                int st = catView.currentStateCode();
+                if (st == 0 || st == 15) {
+                    catView.tapAlternate();
+                    catView.swayBeat((musicBeats % 2) == 0);
+                    if ((musicBeats % 4) == 0) catView.burstMusicNote();
+                    musicBeats++;
+                }
+            } else {
+                musicBeats = 0;
+            }
+            handler.postDelayed(this, 560);
+        }
+    };
+
+    private final Runnable greetTask = () -> {
+        if (!attached || touching || holdingSign || sideDock != 0 || edge.active
+                || weatherWindow.isShowing() || catView == null) return;
+        String[] greet = new PetBondStore(this).consumeGreeting(System.currentTimeMillis(), ZoneId.systemDefault());
+        if (greet == null) return;
+        boolean night = greet[0].contains("晚");
+        catView.playAction(night ? "playYawn" : "playStretch");
+        weatherWindow.showMessage(params, greet[0], greet[1],
+                night ? WeatherWindow.ICON_MOON : WeatherWindow.ICON_SUN, 7500);
+    };
+
     private final Runnable longPress = () -> {
         if (!touching || moved || !attached) return;
         touching = false;
+        catView.setDragMotion(0f, false);
         catView.endTouch(false);
         if (edge.active && !edgeOverride) {
             edge.pauseFor(SystemClock.uptimeMillis() - touchStarted);
@@ -111,16 +190,21 @@ public class FloatingPetService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         weatherWindow = new WeatherWindow(this, windowManager);
         settings = new PetSettings(this);
         tools = new PetToolsStore(this);
         androidx.core.content.ContextCompat.registerReceiver(this, toolsChanged,
                 new IntentFilter(PetReminder.CHANGED), androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED);
+        IntentFilter powerFilter = new IntentFilter();
+        powerFilter.addAction(Intent.ACTION_POWER_CONNECTED);
+        powerFilter.addAction(Intent.ACTION_BATTERY_CHANGED);
+        registerReceiver(powerReceiver, powerFilter);
         PetReminder.schedule(this);
         touchSlop = ViewConfiguration.get(this).getScaledTouchSlop();
     }
 
-    private void startPetForeground() {
+    private Notification buildPetNotification() {
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         manager.createNotificationChannel(new NotificationChannel(
                 CHANNEL_ID, "悬浮猫", NotificationManager.IMPORTANCE_LOW));
@@ -129,14 +213,23 @@ public class FloatingPetService extends Service {
         PendingIntent hide = PendingIntent.getService(this, 1,
                 new Intent(this, FloatingPetService.class).setAction(ACTION_HIDE),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+        PendingIntent toggleThrough = PendingIntent.getService(this, 2,
+                new Intent(this, FloatingPetService.class).setAction(ACTION_TOGGLE_TOUCH_THROUGH),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        boolean through = settings.isTouchThrough();
+        return new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_pet)
-                .setContentTitle("BongoCat 正在陪你")
-                .setContentText("点此调整外观，或点“收起”隐藏悬浮猫")
+                .setContentTitle(through ? "BongoCat 正在陪你（穿透中）" : "BongoCat 正在陪你")
+                .setContentText("点此调整外观，或快捷切换穿透与收起")
                 .setContentIntent(open)
                 .setOngoing(true)
+                .addAction(new Notification.Action.Builder(null, through ? "恢复触控" : "触摸穿透", toggleThrough).build())
                 .addAction(new Notification.Action.Builder(null, "收起", hide).build())
                 .build();
+    }
+
+    private void startPetForeground() {
+        Notification notification = buildPetNotification();
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         } else {
@@ -144,15 +237,19 @@ public class FloatingPetService extends Service {
         }
     }
 
+    private void updatePetNotification() {
+        if (!foregroundStarted) return;
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager != null) manager.notify(NOTIFICATION_ID, buildPetNotification());
+    }
+
     private void createCat() {
         catView = new RiveView(this);
         catView.setOnLongClickListener(view -> { openTools("menu"); return true; });
-        catView.setSignClick(() -> openTools(tools.status() == PetToolsStore.DONE ? "timer" : "read"));
-        catView.setCrawlListener(new RiveView.CrawlListener() {
-            @Override public void onLyingCrawlChanged(boolean lying) {
-                lyingCrawl = lying;
-                applySettings();
-            }
+        catView.setSignClick(() -> openTools(tools.status() == PetToolsStore.DONE ? "timer" : (tools.notePinned() ? "read" : "tasks")));
+        catView.setCrawlListener(lying -> {
+            lyingCrawl = lying;
+            applySettings();
         });
         params = new WindowManager.LayoutParams(
                 1, 1, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -168,7 +265,7 @@ public class FloatingPetService extends Service {
                         Math.max(0, screen.y - params.height), dx, dy);
             }
             @Override public boolean move(float progress) {
-                if (!attached || touching) return false;
+                if (!attached || touching || sideDock != 0) return false;
                 boolean room = crawlMotion.move(progress);
                 params.x = Math.round(crawlMotion.x);
                 params.y = Math.round(crawlMotion.y);
@@ -187,8 +284,9 @@ public class FloatingPetService extends Service {
                         touchStarted = SystemClock.uptimeMillis();
                         handler.removeCallbacks(edgeTick);
                         catView.beginTouch();
-                        downX = event.getRawX();
+                        downX = lastRawX = event.getRawX();
                         downY = event.getRawY();
+                        lastStepDx = 0f;
                         downParamX = params.x;
                         downParamY = params.y;
                         moved = false;
@@ -199,12 +297,25 @@ public class FloatingPetService extends Service {
                         if (!touching) return true;
                         int dx = Math.round(event.getRawX() - downX);
                         int dy = Math.round(event.getRawY() - downY);
-                        if (Math.hypot(dx, dy) > touchSlop) { moved = true; handler.removeCallbacks(longPress); }
+                        float stepDx = event.getRawX() - lastRawX;
+                        lastRawX = event.getRawX();
+                        lastStepDx = lastStepDx * 0.5f + stepDx * 0.5f;
+                        if (Math.hypot(dx, dy) > touchSlop) {
+                            if (!moved && sideDock != 0) {
+                                // 从贴边状态直接拖出时恢复完整小猫。
+                                exitSideDock(false);
+                                downParamX = params.x;
+                                downParamY = params.y;
+                            }
+                            moved = true;
+                            handler.removeCallbacks(longPress);
+                        }
                         if (moved) {
                             params.x = downParamX + dx;
                             params.y = downParamY + dy;
                             clampPosition();
                             updateWindow();
+                            catView.setDragMotion(lastStepDx, true);
                         }
                         return true;
                     case MotionEvent.ACTION_UP:
@@ -212,15 +323,29 @@ public class FloatingPetService extends Service {
                         handler.removeCallbacks(longPress);
                         if (!touching) return true;
                         touching = false;
-                        catView.endTouch(moved && event.getActionMasked() == MotionEvent.ACTION_UP);
+                        catView.setDragMotion(0f, false);
+                        boolean up = event.getActionMasked() == MotionEvent.ACTION_UP;
+                        if (sideDock != 0 && !moved && up) {
+                            catView.endTouch(false);
+                            exitSideDock(true);
+                            return true;
+                        }
+                        if (moved && up && !edge.active && !holdingSign && !landscape() && trySideDock()) {
+                            catView.endTouch(false);
+                            return true;
+                        }
+                        catView.endTouch(moved && up);
                         if (edge.active && !edgeOverride) {
                             edge.pauseFor(SystemClock.uptimeMillis() - touchStarted);
                             if (moved) enterEdge(); else handler.post(edgeTick);
                         }
                         savePosition();
-                        if (!moved && event.getActionMasked() == MotionEvent.ACTION_UP) {
-                            if (catView.hitsSign(event.getX(), event.getY())) openTools(tools.status() == PetToolsStore.DONE ? "timer" : "read");
-                            else catView.performPartClick(event.getX(), event.getY());
+                        if (!moved && up) {
+                            if (catView.hitsSign(event.getX(), event.getY())) {
+                                openTools(tools.status() == PetToolsStore.DONE ? "timer" : (tools.notePinned() ? "read" : "tasks"));
+                            } else {
+                                catView.performPartClick(event.getX(), event.getY());
+                            }
                         }
                         return true;
                     default:
@@ -236,6 +361,48 @@ public class FloatingPetService extends Service {
         if (lastLandscape) enterEdge();
         handler.postDelayed(permissionCheck, 3000);
         handler.post(toolTick);
+        handler.postDelayed(musicTick, 1200);
+        handler.postDelayed(greetTask, 3200);
+        PetQuickTileService.requestSync(this);
+    }
+
+    /** 竖屏拖至屏幕左右边缘或轻甩向边缘时自动半藏露小耳朵。 */
+    private boolean trySideDock() {
+        Point screen = screenSize();
+        int edgeGap = Math.round(14 * getResources().getDisplayMetrics().density);
+        int side = 0;
+        if (params.x <= edgeGap || (lastStepDx < -18f && params.x < screen.x * 0.25f)) side = -1;
+        else if (params.x + params.width >= screen.x - edgeGap || (lastStepDx > 18f && params.x > screen.x * 0.55f)) side = 1;
+        if (side == 0) return false;
+        sideDock = side;
+        undockX = Math.max(edgeGap * 2, Math.min(Math.max(edgeGap * 2, screen.x - petBase - edgeGap * 2),
+                side < 0 ? edgeGap * 2 : screen.x - petBase - edgeGap * 2));
+        lyingCrawl = false;
+        int dockWidth = Math.max(1, Math.round(petBase * 0.44f));
+        params.width = dockWidth;
+        params.height = petBase;
+        params.x = side < 0 ? 0 : Math.max(0, screen.x - dockWidth);
+        catView.setSideDockPresentation(petBase, side);
+        catView.triggerHaptic();
+        updateWindow();
+        return true;
+    }
+
+    private void exitSideDock(boolean animateRecall) {
+        if (sideDock == 0) return;
+        sideDock = 0;
+        catView.setSideDockPresentation(petBase, 0);
+        params.width = petBase;
+        params.height = petBase;
+        params.x = undockX;
+        clampPosition();
+        updateWindow();
+        savePosition();
+        if (animateRecall) {
+            catView.triggerHaptic();
+            catView.tapAlternate();
+            catView.burstHearts();
+        }
     }
 
     private Point screenSize() {
@@ -267,9 +434,11 @@ public class FloatingPetService extends Service {
         boolean through = settings.isTouchThrough();
         applyTouchMode(this, params, through, catView.getAlpha());
         catView.setAlpha(1f);
+        updatePetNotification();
         if (through && touching) {
             handler.removeCallbacks(longPress);
             touching = false;
+            catView.setDragMotion(0f, false);
             catView.endTouch(false);
             if (edge.active && !edgeOverride) edge.pauseFor(SystemClock.uptimeMillis() - touchStarted);
         }
@@ -287,6 +456,16 @@ public class FloatingPetService extends Service {
             applyEdgeFrame();
             handler.removeCallbacks(edgeTick);
             handler.post(edgeTick);
+            return;
+        }
+        if (sideDock != 0) {
+            int dockWidth = Math.max(1, Math.round(base * 0.44f));
+            params.width = dockWidth;
+            params.height = base;
+            params.x = sideDock < 0 ? 0 : Math.max(0, screen.x - dockWidth);
+            catView.setSideDockPresentation(base, sideDock);
+            clampPosition();
+            if (attached) updateWindow();
             return;
         }
         if (lyingCrawl) {
@@ -309,11 +488,12 @@ public class FloatingPetService extends Service {
     }
 
     private void savePosition() {
-        if (!edge.active && !landscape() && params != null) settings.setPos(params.x, params.y);
+        if (!edge.active && sideDock == 0 && !landscape() && params != null) settings.setPos(params.x, params.y);
     }
 
     private void enterEdge() {
         if (!attached || touching || holdingSign) return;
+        if (sideDock != 0) exitSideDock(false);
         handler.removeCallbacks(edgeTick);
         handler.removeCallbacks(resumeEdge);
         int x = params.x, y = params.y;
@@ -348,7 +528,8 @@ public class FloatingPetService extends Service {
         if (!attached) return;
         handler.removeCallbacks(longPress);
         boolean next = landscape();
-        if (touching) { touching = false; moved = true; catView.endTouch(false); }
+        if (touching) { touching = false; moved = true; catView.setDragMotion(0f, false); catView.endTouch(false); }
+        if (sideDock != 0) exitSideDock(false);
         if (holdingSign) {
             if (next && !lastLandscape) {
                 settings.setPos(params.x, params.y);
@@ -395,6 +576,7 @@ public class FloatingPetService extends Service {
         boolean next = tools.hasSign();
         if (next && !holdingSign) {
             holdingSign = true;
+            if (sideDock != 0) exitSideDock(false);
             handler.removeCallbacks(edgeTick); handler.removeCallbacks(resumeEdge); cancelManualAction();
             if (landscape() && !edge.active) {
                 edge.restoreX = settings.getPosX(); edge.restoreY = settings.getPosY(); edge.active = true;
@@ -426,10 +608,22 @@ public class FloatingPetService extends Service {
 
     private void hidePet() {
         settings.setVisible(false);
+        PetQuickTileService.requestSync(this);
         stopSelf();
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_TOGGLE_TOUCH_THROUGH.equals(intent.getAction())) {
+            boolean next = !settings.isTouchThrough();
+            settings.setTouchThrough(next);
+            if (attached) applySettings();
+            Toast.makeText(this, next ? "已开启触摸穿透" : "已恢复小猫触控", Toast.LENGTH_SHORT).show();
+            return START_STICKY;
+        }
+        if (intent != null && ACTION_PREVIEW_WEATHER.equals(intent.getAction())) {
+            previewWeather();
+            return START_STICKY;
+        }
         if (intent != null && ACTION_PLAY.equals(intent.getAction())) {
             playAction(intent.getStringExtra(EXTRA_TRIGGER));
             return START_STICKY;
@@ -454,6 +648,29 @@ public class FloatingPetService extends Service {
         return START_STICKY;
     }
 
+    private void previewWeather() {
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "请先允许悬浮窗权限", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!foregroundStarted) {
+            startPetForeground();
+            foregroundStarted = true;
+        }
+        if (!attached) {
+            settings.setVisible(true);
+            createCat();
+        } else {
+            if (sideDock != 0) exitSideDock(false);
+            applySettings();
+        }
+        handler.postDelayed(() -> {
+            if (attached && !weatherWindow.previewWeather(params)) {
+                Toast.makeText(this, "请先选择位置并等待天气加载完成", Toast.LENGTH_SHORT).show();
+            }
+        }, 250);
+    }
+
     /** 动作页点名触发：猫没出来就先把它放出来，再做动作。 */
     private void playAction(String trigger) {
         if (trigger == null || trigger.isEmpty()) return;
@@ -472,6 +689,7 @@ public class FloatingPetService extends Service {
                 createCat();
                 justCreated = true;
             } else {
+                if (sideDock != 0) exitSideDock(false);
                 applySettings();
             }
             if (catView == null) return;
@@ -508,7 +726,8 @@ public class FloatingPetService extends Service {
     @Override public void onDestroy() {
         weatherWindow.close();
         handler.removeCallbacksAndMessages(null);
-        unregisterReceiver(toolsChanged);
+        try { unregisterReceiver(toolsChanged); } catch (IllegalArgumentException ignored) {}
+        try { unregisterReceiver(powerReceiver); } catch (IllegalArgumentException ignored) {}
         if (catView != null) catView.stopMotion();
         if (attached) {
             savePosition();
@@ -522,6 +741,7 @@ public class FloatingPetService extends Service {
         if (catView != null) catView.release();
         catView = null;
         stopForeground(STOP_FOREGROUND_REMOVE);
+        PetQuickTileService.requestSync(this);
         super.onDestroy();
     }
 

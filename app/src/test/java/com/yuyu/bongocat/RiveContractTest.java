@@ -44,7 +44,8 @@ public class RiveContractTest {
                 assertEquals(255, (packed & 255) + ((packed >> 8) & 255));
             }
         }
-        for (String name : new String[]{"Bow", "Hat", "Crown", "Flower", "Scarf"}) {
+        for (String name : new String[]{"Bow", "Hat", "Crown", "Flower", "Scarf",
+                "Sunglasses", "Headphones", "Bell", "Nightcap", "Rainhat"}) {
             boolean found = false;
             NodeList groups = doc.getElementsByTagName("Node");
             for (int i = 0; i < groups.getLength(); i++) {
@@ -52,9 +53,10 @@ public class RiveContractTest {
             }
             assertTrue("Missing Rive costume: " + name, found);
         }
+        named(doc, "ViewModelPropertyNumber", "pattern");
         assertEquals(1, doc.getElementsByTagName("StateMachine").getLength());
-        assertEquals(3, doc.getElementsByTagName("StateMachineLayer").getLength());
-        assertEquals(44, doc.getElementsByTagName("LinearAnimation").getLength());
+        assertEquals(4, doc.getElementsByTagName("StateMachineLayer").getLength());
+        assertEquals(54, doc.getElementsByTagName("LinearAnimation").getLength());
         named(doc, "ViewModelPropertyBoolean", "holdSign");
         named(doc, "Node", "Sign Board");
         assertEquals(3, doc.getElementsByTagName("RootBone").getLength());
@@ -78,7 +80,7 @@ public class RiveContractTest {
         for (int i = 0; i < animations.getLength(); i++) {
             Element animation = (Element) animations.item(i);
             String name = animation.getAttribute("name");
-            if (name.equals("Inactivity") || name.startsWith("Costume")) continue;
+            if (name.equals("Inactivity") || name.startsWith("Costume") || name.startsWith("Pattern")) continue;
             NodeList keys = track(animation, solo.getAttribute("id"), "activeComponentId").getElementsByTagName("KeyFrameId");
             assertTrue(name, keys.getLength() > 0);
             for (int j = 0; j < keys.getLength(); j++) {

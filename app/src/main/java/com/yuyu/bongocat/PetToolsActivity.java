@@ -288,6 +288,38 @@ public class PetToolsActivity extends Activity {
     private void renderNote() {
         heading("便利贴");
         noteInput = input(noteDraft == null ? store.note() : noteDraft, "写下便利贴内容", PetToolsStore.MAX_NOTE, false);
+        // 举牌纸张风格切换（奶油手账 / 樱花粉纸 / 抹茶便签）
+        PetSettings petSettings = new PetSettings(this);
+        int currentStyle = petSettings.getSignStyle();
+        LinearLayout stylesRow = new LinearLayout(this);
+        LinearLayout.LayoutParams stylesLp = new LinearLayout.LayoutParams(-1, -2);
+        stylesLp.topMargin = dp(8);
+        body.addView(stylesRow, stylesLp);
+        int[] styleFills = {0xFFFFF8E8, 0xFFFFEEF4, 0xFFEFF8EE};
+        for (int i = 0; i < PetSettings.SIGN_STYLE_NAMES.length; i++) {
+            final int idx = i;
+            boolean sel = i == currentStyle;
+            Button chip = new Button(this);
+            chip.setText(PetSettings.SIGN_STYLE_NAMES[i]);
+            chip.setTextSize(12); chip.setAllCaps(false); chip.setStateListAnimator(null);
+            chip.setTextColor(sel ? UiStyle.ACCENT_DARK : INK);
+            chip.setTypeface(null, sel ? Typeface.BOLD : Typeface.NORMAL);
+            chip.setBackground(UiStyle.ripple(this, styleFills[i],
+                    sel ? PINK : UiStyle.BORDER, sel ? 1.8f : 1f, 12f, UiStyle.RIPPLE_PINK));
+            chip.setMinWidth(0); chip.setMinimumWidth(0); chip.setPadding(dp(2), 0, dp(2), 0);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(38), 1);
+            if (i > 0) lp.leftMargin = dp(6);
+            stylesRow.addView(chip, lp);
+            chip.setOnClickListener(v -> {
+                captureDrafts();
+                petSettings.setSignStyle(idx);
+                if (petSettings.isVisible()) {
+                    startService(new Intent(this, FloatingPetService.class)
+                            .setAction(FloatingPetService.ACTION_UPDATE_SETTINGS));
+                }
+                render();
+            });
+        }
         button("保存并举牌", () -> {
             String value = noteInput.getText().toString();
             if (value.trim().isEmpty()) { noteInput.setError("先写一点内容吧"); return; }
@@ -340,9 +372,23 @@ public class PetToolsActivity extends Activity {
             check.setOnCheckedChangeListener((view, checked) -> {
                 store.setTaskDone(task.id, checked);
                 applyTaskStyle(check, checked);
+                PetReminder.changed(this);
             });
         }
-        if (!store.tasks().isEmpty()) button("清理已完成", () -> { captureDrafts(); store.clearCompleted(); render(); }, false);
+        if (store.nextOpenTask() != null || store.taskPinned()) {
+            boolean pinned = store.taskPinned();
+            button(pinned ? "收起待办举牌" : "举起下一条待办", () -> {
+                captureDrafts();
+                store.pinTask(!pinned);
+                PetReminder.changed(this);
+                if (!pinned && Settings.canDrawOverlays(this)) {
+                    new PetSettings(this).setVisible(true);
+                    startForegroundService(new Intent(this, FloatingPetService.class));
+                }
+                render();
+            }, false);
+        }
+        if (!store.tasks().isEmpty()) button("清理已完成", () -> { captureDrafts(); store.clearCompleted(); PetReminder.changed(this); render(); }, false);
     }
 
     private void applyTaskStyle(CheckBox check, boolean done) {

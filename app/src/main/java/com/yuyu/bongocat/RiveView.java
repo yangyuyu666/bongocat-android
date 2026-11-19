@@ -2,12 +2,14 @@ package com.yuyu.bongocat;
 
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.os.SystemClock;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.animation.OvershootInterpolator;
 import android.widget.FrameLayout;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
@@ -18,16 +20,18 @@ import app.rive.runtime.kotlin.core.Alignment;
 import app.rive.runtime.kotlin.core.Direction;
 import app.rive.runtime.kotlin.core.Fit;
 import app.rive.runtime.kotlin.core.Loop;
-import app.rive.runtime.kotlin.core.errors.ViewModelException;
 import app.rive.runtime.kotlin.core.ViewModelInstance;
 import app.rive.runtime.kotlin.core.ViewModelNumberProperty;
+import app.rive.runtime.kotlin.core.errors.ViewModelException;
 
-/** 预览和浮窗共用 Rive 文件、外观绑定和触摸入口。 */
+/** 预览和浮窗共用 Rive 文件、外观绑定、粒子特效和触摸入口。 */
 public final class RiveView extends FrameLayout {
     private final RiveAnimationView renderer;
     private final SignTextView signText;
+    private final PetEffectView effects;
     private boolean holdingSign;
     private Runnable signClick;
+    private Runnable bondListener;
     private final PetLifecycle lifecycle = new PetLifecycle();
     private final RiveMovement movement = new RiveMovement();
     private final CrawlMotion previewMotion = new CrawlMotion();
@@ -35,7 +39,7 @@ public final class RiveView extends FrameLayout {
     private final ViewModelNumberProperty state, progress, directionX, directionY, actionProgress;
     private final PetInteraction interactions = new PetInteraction();
     private Runnable pendingAction;
-    private boolean edgeMode, hasClickPoint, touchMoved;
+    private boolean edgeMode, hasClickPoint, touchMoved, hapticEnabled = true;
     private float clickX, clickY, touchX, touchY;
     private RiveMovement.Host movementHost;
     private boolean active = true, touching, attached, released, lastWasLeft;
@@ -49,6 +53,7 @@ public final class RiveView extends FrameLayout {
     }
 
     public void setCrawlListener(CrawlListener listener) { crawlListener = listener; }
+    public void setBondListener(Runnable listener) { bondListener = listener; }
 
     private static final class PetLifecycle implements LifecycleOwner {
         final LifecycleRegistry registry = new LifecycleRegistry(this);
@@ -132,20 +137,64 @@ public final class RiveView extends FrameLayout {
         signText = new SignTextView(context);
         signText.setVisibility(INVISIBLE);
         addView(signText, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        effects = new PetEffectView(context);
+        addView(effects, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         setClickable(true);
     }
 
+    public int currentStateCode() {
+        return Math.round(state.getValue());
+    }
+
     public void applySettings(PetSettings settings) {
+        int costume = settings.effectiveCostume(getContext());
+        int pattern = settings.getPattern();
+        hapticEnabled = settings.isHapticEnabled();
+        signText.setStyle(settings.getSignStyle());
         try {
             model.getColorProperty("bodyColor").setValue(settings.combinedTint());
-            model.getNumberProperty("costume").setValue((float) settings.getCostume());
+            model.getNumberProperty("costume").setValue((float) costume);
+            model.getNumberProperty("pattern").setValue((float) pattern);
         } catch (ViewModelException e) {
             Log.w("RiveView", "Rive 外观绑定失败", e);
         }
         setAlpha(settings.getOpacity() / 100f);
-        setContentDescription(PetSettings.COLOR_NAMES[settings.getColor()] + "猫，配饰："
-                + PetSettings.COSTUME_NAMES[settings.getCostume()]);
+        setContentDescription(PetSettings.COLOR_NAMES[settings.getColor()]
+                + (pattern > 0 ? PetSettings.PATTERN_NAMES[pattern] : "")
+                + "猫，配饰：" + PetSettings.COSTUME_NAMES[costume]);
         if (shouldPlay()) renderer.play("PetStateMachine", Loop.AUTO, Direction.AUTO, true, false);
+    }
+
+    public void burstHearts() { effects.burstHearts(); }
+    public void burstQuestion() { effects.burstQuestion(); }
+    public void burstLightning() { effects.burstLightning(); }
+    public void burstMusicNote() { effects.burstMusicNote(); }
+
+    public void triggerHaptic() {
+        if (hapticEnabled) performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+    }
+
+    /** 拖拽时的拎起拉伸与惯性微倾反馈，松手弹性回正。 */
+    public void setDragMotion(float deltaX, boolean dragging) {
+        renderer.animate().cancel();
+        if (dragging) {
+            float tilt = Math.max(-14f, Math.min(14f, deltaX * 0.45f));
+            renderer.setRotation(renderer.getRotation() * 0.65f + tilt * 0.35f);
+            float sx = renderer.getScaleX() < 0 ? -0.95f : 0.95f;
+            renderer.setScaleX(sx);
+            renderer.setScaleY(1.05f);
+        } else {
+            float targetScaleX = renderer.getScaleX() < 0 ? -1f : 1f;
+            renderer.animate().rotation(0f).scaleX(targetScaleX).scaleY(1f)
+                    .setDuration(260).setInterpolator(new OvershootInterpolator(1.6f)).start();
+        }
+    }
+
+    /** 听歌律动时的轻快左右摇摆。 */
+    public void swayBeat(boolean left) {
+        if (touching || edgeMode || holdingSign) return;
+        renderer.animate().rotation(left ? -4.5f : 4.5f).setDuration(180)
+                .withEndAction(() -> renderer.animate().rotation(0f).setDuration(220).start()).start();
     }
 
     public void tapAlternate() { tap(!lastWasLeft); }
@@ -212,12 +261,17 @@ public final class RiveView extends FrameLayout {
     @Override public boolean performClick() {
         super.performClick();
         if (holdingSign) { if (signClick != null) signClick.run(); return true; }
-        if (!hasClickPoint) { if (edgeMode) fireTrigger("petPeek"); else tapAlternate(); return true; }
+        if (!hasClickPoint) {
+            if (edgeMode) { fireTrigger("petPeek"); effects.burstHearts(); triggerHaptic(); }
+            else { tapAlternate(); triggerHaptic(); }
+            return true;
+        }
         hasClickPoint = false;
-        if (edgeMode) { fireTrigger("petPeek"); return true; }
+        if (edgeMode) { fireTrigger("petPeek"); effects.burstHearts(); triggerHaptic(); return true; }
         PetInteraction.Action action = interactions.tap(clickX, clickY, getWidth(), getHeight(),
                 lastLyingCrawl, Math.round(state.getValue()), actionProgress.getValue(), SystemClock.uptimeMillis());
         if (action == PetInteraction.Action.NONE) return true;
+        triggerHaptic();
         if (action == PetInteraction.Action.WAKE) { tapAlternate(); return true; }
         if (action == PetInteraction.Action.LEFT_PAW || action == PetInteraction.Action.RIGHT_PAW) {
             tap(action == PetInteraction.Action.LEFT_PAW); return true;
@@ -225,14 +279,34 @@ public final class RiveView extends FrameLayout {
         fireTrigger("touchActivity");
         switch (action) {
             case TAIL: fireTrigger("playTail"); break;
-            case HEAD: fireTrigger("petHead"); break;
-            case NOSE: fireTrigger("boopNose"); break;
+            case HEAD:
+                fireTrigger("petHead");
+                effects.burstHearts();
+                rewardPetBond();
+                break;
+            case NOSE:
+                fireTrigger("boopNose");
+                effects.burstQuestion();
+                break;
             case STRETCH: fireTrigger("playStretch"); break;
-            case BELLY: fireTrigger("tickleBelly"); break;
-            case SHY: fireTrigger("teaseHead"); break;
+            case BELLY:
+                fireTrigger("tickleBelly");
+                effects.burstHearts();
+                rewardPetBond();
+                break;
+            case SHY:
+                fireTrigger("teaseHead");
+                effects.burstHearts();
+                break;
             default: break;
         }
         return true;
+    }
+
+    private void rewardPetBond() {
+        if (new PetBondStore(getContext()).rewardPet(System.currentTimeMillis()) && bondListener != null) {
+            bondListener.run();
+        }
     }
 
     public void setEdgeMode(boolean enabled, boolean peek, boolean faceRight) {
@@ -257,6 +331,20 @@ public final class RiveView extends FrameLayout {
             layout.topMargin = Math.round(base * .45f) - base;
         }
         renderer.setLayoutParams(layout);
+    }
+
+    /** 竖屏贴边躲藏展示：仅露出半边可爱小脑袋与耳朵。 */
+    public void setSideDockPresentation(int base, int side) {
+        if (side == 0) {
+            renderer.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+            renderer.setRotation(0f);
+            return;
+        }
+        int visibleWidth = Math.max(1, Math.round(base * 0.44f));
+        LayoutParams layout = new LayoutParams(base, base);
+        layout.leftMargin = side < 0 ? -(base - visibleWidth) : 0;
+        renderer.setLayoutParams(layout);
+        renderer.setRotation(side < 0 ? 16f : -16f);
     }
 
     public void setMovementHost(RiveMovement.Host host) { movementHost = host; }

@@ -70,6 +70,7 @@ public final class PetToolsStore {
             if (status() != RUNNING || !token().equals(expectedToken) || remaining() > 0) return false;
             // 先持久化完成状态，防止服务轮询和系统闹钟重复提醒。
             prefs.edit().putInt("timer_status", DONE).commit();
+            new PetBondStore(context).rewardFocus();
             return true;
         }
     }
@@ -81,8 +82,30 @@ public final class PetToolsStore {
         prefs.edit().putString("note", text).putBoolean("note_pinned", pinned && !text.trim().isEmpty()).commit();
     }
     public void pinNote(boolean pinned) { saveNote(note(), pinned); }
-    public boolean hasSign() { return status() == DONE || notePinned(); }
-    public String signText() { return status() == DONE ? "时间到啦！\n休息一下吧" : note(); }
+
+    public boolean taskPinned() { return prefs.getBoolean("task_pinned", false); }
+    public void pinTask(boolean pinned) { prefs.edit().putBoolean("task_pinned", pinned).commit(); }
+
+    public String nextOpenTask() {
+        for (Task task : tasks()) {
+            if (!task.done) return task.text;
+        }
+        return null;
+    }
+
+    public boolean hasSign() {
+        return status() == DONE || notePinned() || (taskPinned() && nextOpenTask() != null);
+    }
+
+    public String signText() {
+        if (status() == DONE) return "时间到啦！\n休息一下吧";
+        if (notePinned()) return note();
+        if (taskPinned()) {
+            String next = nextOpenTask();
+            if (next != null) return "待办：" + next;
+        }
+        return note();
+    }
 
     public static final class Task {
         public final String id, text;
@@ -113,8 +136,15 @@ public final class PetToolsStore {
 
     public void setTaskDone(String id, boolean done) {
         List<Task> list = tasks();
-        for (Task task : list) if (task.id.equals(id)) task.done = done;
+        boolean newlyDone = false;
+        for (Task task : list) {
+            if (task.id.equals(id)) {
+                if (!task.done && done) newlyDone = true;
+                task.done = done;
+            }
+        }
         saveTasks(list);
+        if (newlyDone) new PetBondStore(context).rewardTask();
     }
 
     public void clearCompleted() {

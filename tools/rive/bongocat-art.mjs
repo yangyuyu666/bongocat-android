@@ -2,7 +2,7 @@ import {node,shape,ellipse,tailSkin} from './vector.mjs';
 import {buildForelimb} from './forelimbs.mjs';
 import {buildFrameArt} from './frame-poses.mjs';
 
-export function buildArt(costumeIds,definitions=[]) {
+export function buildArt(costumeIds,definitions=[],patternIds={}) {
   const ink='#463C49',pink='#F3A3BA',shade='#174A3548',shadeSoft='#104A3548',glow='#48FFFFFF';
   const part=(name,x,y,children,extra={})=>node(name,x,y,children,extra);
   const line=(name,d,w=3.3,c=ink)=>shape(name,d,null,c,w);
@@ -14,9 +14,31 @@ export function buildArt(costumeIds,definitions=[]) {
   ]);
   const skin=tailSkin([[84,61],[119,54],[145,29],[153,-8]],[240,305]);
 
+  // 躯干花纹组（位于 Body 填充之上，通过 Pattern 状态机层切换）
+  const bodyPatterns=[
+    part('PatternBodyTabby',0,0,[
+      shape('Tabby Side L1','M -98 -10 C -85 -12 -74 -8 -70 -2 C -79 1 -90 -1 -100 -4 Z','#58A66535',null),
+      shape('Tabby Side L2','M -102 14 C -88 12 -76 16 -72 22 C -82 25 -93 23 -103 20 Z','#58A66535',null),
+      shape('Tabby Side R1','M 98 -10 C 85 -12 74 -8 70 -2 C 79 1 90 -1 100 -4 Z','#58A66535',null),
+      shape('Tabby Side R2','M 102 14 C 88 12 76 16 72 22 C 82 25 93 23 103 20 Z','#58A66535',null),
+    ],{id:patternIds.Tabby?.body,opacity:0}),
+    part('PatternBodyTuxedo',0,0,[
+      shape('Tuxedo Back R','M 52 -66 C 85 -48 103 -14 103 28 C 82 32 62 14 55 -12 C 48 -34 45 -52 52 -66 Z','#CC3E3843',null),
+      shape('Tuxedo Patch L','M -96 14 C -84 8 -70 16 -68 34 C -66 52 -80 62 -95 56 C -102 44 -102 26 -96 14 Z','#CC3E3843',null),
+    ],{id:patternIds.Tuxedo?.body,opacity:0}),
+    part('PatternBodyCalico',0,0,[
+      shape('Calico Orange R','M 54 -64 C 86 -46 102 -12 101 24 C 82 24 68 10 62 -14 C 57 -34 50 -50 54 -64 Z','#DDE89756',null),
+      shape('Calico Dark L','M -97 8 C -82 4 -68 15 -68 32 C -68 50 -84 58 -96 50 C -103 38 -102 22 -97 8 Z','#C84A3E43',null),
+    ],{id:patternIds.Calico?.body,opacity:0}),
+    part('PatternBodySiamese',0,0,[
+      shape('Siamese Flank Shade','M -86 -44 C -98 -10 -98 34 -80 66 C -54 80 54 80 80 66 C 98 34 98 -10 86 -44 C 72 -10 72 44 50 62 C 20 72 -20 72 -50 62 C -72 44 -72 -10 -86 -44 Z','#26735542',null),
+    ],{id:patternIds.Siamese?.body,opacity:0}),
+  ];
+
   // 躯干：叠加半透明体积底影、下颌柔影与胸腹柔光，兼容全套 8 种毛色。
   const body=part('Torso',0,11,[
     shape('Body','M -80 -66 C -102 -44 -112 -2 -106 41 C -100 77 -78 91 -48 91 L 48 91 C 78 91 100 77 106 41 C 112 -2 102 -44 80 -66 C 50 -96 -50 -96 -80 -66 Z','body',ink,4.4),
+    ...bodyPatterns,
     shape('Body Bottom Shade','M -98 54 C -88 79 -67 89 -42 89 L 42 89 C 67 89 88 79 98 54 C 82 72 59 77 35 77 L -35 77 C -59 77 -82 72 -98 54 Z',shade,null),
     shape('Neck Soft Shade','M -56 -48 C -25 -32 25 -32 56 -48 C 34 -40 -34 -40 -56 -48 Z',shadeSoft,null),
     dot('Chest Warmth',0,22,42,46,'#18FFEBF1'),
@@ -48,6 +70,31 @@ export function buildArt(costumeIds,definitions=[]) {
   const arms=['Left','Right'].map(side=>buildForelimb(side,ink,pink));
   const [foreLeft,foreRight]=arms.map(arm=>arm.node);
 
+  // 头部花纹组（位于头底色之上、内耳与五官及描边之下，随头身自然运动）
+  const headPatterns=[
+    part('PatternHeadTabby',0,0,[
+      shape('Tabby Forehead C','M -4 -52 L 4 -52 L 3 -25 C 2 -21 -2 -21 -3 -25 Z','#6EA66535',null),
+      shape('Tabby Forehead L','M -21 -50 L -13 -51 L -15 -28 C -16 -24 -21 -25 -22 -29 Z','#6EA66535',null),
+      shape('Tabby Forehead R','M 13 -51 L 21 -50 L 22 -29 C 21 -25 16 -24 15 -28 Z','#6EA66535',null),
+      shape('Tabby Cheek L1','M -96 4 C -86 3 -78 5 -76 9 C -84 11 -92 10 -99 8 Z','#5CA66535',null),
+      shape('Tabby Cheek R1','M 96 4 C 86 3 78 5 76 9 C 84 11 92 10 99 8 Z','#5CA66535',null),
+    ],{id:patternIds.Tabby?.head,opacity:0}),
+    part('PatternHeadTuxedo',0,0,[
+      shape('Tuxedo Cap L','M -94 -20 C -101 -43 -98 -66 -89 -80 C -81 -84 -60 -59 -48 -49 C -32 -54 -14 -54 -2 -51 C -16 -28 -36 -14 -58 -12 C -74 -10 -86 -13 -94 -20 Z','#CC3E3843',null),
+      shape('Tuxedo Ear R','M 46 -46 C 61 -55 77 -70 87 -72 C 96 -67 97 -39 90 -18 C 76 -22 60 -32 46 -46 Z','#CC3E3843',null),
+    ],{id:patternIds.Tuxedo?.head,opacity:0}),
+    part('PatternHeadCalico',0,0,[
+      shape('Calico Orange L','M -94 -20 C -101 -43 -98 -66 -89 -80 C -81 -84 -60 -59 -48 -49 C -30 -55 -10 -54 2 -50 C -14 -24 -38 -12 -64 -10 C -78 -9 -88 -13 -94 -20 Z','#E0EB9B58',null),
+      shape('Calico Dark R','M 42 -47 C 59 -55 77 -70 87 -72 C 96 -67 97 -39 90 -18 C 98 -4 102 10 99 24 C 82 14 66 -6 42 -47 Z','#CC4A3E43',null),
+    ],{id:patternIds.Calico?.head,opacity:0}),
+    part('PatternHeadSiamese',0,0,[
+      shape('Siamese Ear L','M -94 -20 C -101 -43 -98 -66 -89 -80 C -81 -84 -60 -59 -48 -49 C -62 -36 -78 -25 -94 -20 Z','#C45C463B',null),
+      shape('Siamese Ear R','M 44 -46 C 60 -55 77 -70 87 -72 C 96 -67 97 -39 90 -18 C 74 -25 58 -35 44 -46 Z','#C45C463B',null),
+      dot('Siamese Mask Outer',0,18,54,37,'#44634A3E'),
+      dot('Siamese Mask Inner',0,22,34,23,'#58594237'),
+    ],{id:patternIds.Siamese?.head,opacity:0}),
+  ];
+
   const head=part('Head',0,-102,[
     part('Head Silhouette',0,0,[
       shape('Head Fill','M -94 69 C -112 43 -115 8 -94 -20 C -101 -43 -98 -66 -89 -80 C -81 -84 -60 -59 -48 -49 C -22 -57 15 -55 44 -46 C 60 -55 77 -70 87 -72 C 96 -67 97 -39 90 -18 C 109 11 114 43 95 69 Z','body',null),
@@ -60,6 +107,7 @@ export function buildArt(costumeIds,definitions=[]) {
       shape('Frame Head Fur','M -94 69 C -112 43 -115 8 -94 -20 C -101 -43 -98 -66 -89 -80 C -81 -84 -60 -59 -48 -49 C -22 -57 15 -55 44 -46 C 60 -55 77 -70 87 -72 C 96 -67 97 -39 90 -18 C 109 11 114 43 95 69 C 74 96 -72 101 -94 69 Z','body',ink,4.4),
       shape('Frame Head Glow','M -42 -42 C -16 -50 18 -49 42 -39 C 16 -44 -16 -45 -42 -42 Z',glow,null),
     ],{opacity:0}),
+    ...headPatterns,
     // 双层粉嫩内耳：浅粉外廓 + 暖粉耳窝
     shape('Inner Ear Left','M -86 -59 C -82 -63 -65 -46 -61 -42 C -74 -38 -82 -33 -87 -27 C -90 -38 -89 -53 -86 -59 Z','#F8CBD7',null),
     shape('Inner Ear Left Deep','M -84 -51 C -81 -54 -72 -44 -69 -40 C -77 -38 -81 -35 -85 -31 C -86 -38 -86 -47 -84 -51 Z','#EFA0B8',null),
@@ -171,6 +219,51 @@ export function buildArt(costumeIds,definitions=[]) {
     line('Scarf knit A','M -48 76 L -50 88',2.4,'#FFF0DC'),
     line('Scarf knit B','M 0 83 L 0 94',2.4,'#FFF0DC'),
     line('Scarf knit C','M 46 77 L 48 88',2.4,'#FFF0DC'),
+  ]);
+  // 新增 5 款高颜值配饰：墨镜、耳机、小铃铛、睡帽、雨帽
+  costume('Sunglasses',[
+    line('Glass arm L','M -74 3 L -96 -2',3.2,'#443A46'),
+    line('Glass arm R','M 74 3 L 96 -2',3.2,'#443A46'),
+    line('Glass bridge','M -12 5 C -5 1 5 1 12 5',3.4,'#D6A560'),
+    shape('Glass lens L',ellipse(-39,8,27,19),'#D938303D','#443A46',3.2),
+    shape('Glass lens R',ellipse(39,8,27,19),'#D938303D','#443A46',3.2),
+    line('Glass shine L','M -52 1 L -39 -5 M -45 8 L -30 0',2.8,'#88FFFFFF'),
+    line('Glass shine R','M 26 1 L 39 -5 M 33 8 L 48 0',2.8,'#88FFFFFF'),
+  ]);
+  costume('Headphones',[
+    line('Headband outer','M -104 -2 C -106 -76 -54 -102 0 -102 C 54 -102 106 -76 104 -2',10.5,'#463C49'),
+    line('Headband main','M -104 -2 C -106 -76 -54 -102 0 -102 C 54 -102 106 -76 104 -2',6.5,'#F5A4BE'),
+    line('Headband shine','M -48 -93 C -18 -99 18 -99 48 -93',2.6,'#88FFFFFF'),
+    shape('Ear pad L',ellipse(-99,6,11,24),'#FFF6F8','#463C49',2.8),
+    shape('Ear cup L',ellipse(-109,6,12,21),'#EB7EA3','#463C49',2.8),
+    dot('Ear shine L',-111,-2,3.2,7,'#66FFFFFF'),
+    shape('Ear pad R',ellipse(99,6,11,24),'#FFF6F8','#463C49',2.8),
+    shape('Ear cup R',ellipse(109,6,12,21),'#EB7EA3','#463C49',2.8),
+    dot('Ear shine R',107,-2,3.2,7,'#66FFFFFF'),
+  ]);
+  costume('Bell',[
+    shape('Collar band','M -74 64 C -42 84 42 84 74 64 L 72 75 C 40 94 -40 94 -72 75 Z','#E56684','#8C364D',2.6),
+    shape('Bell body',ellipse(0,92,15,15),'#FFD662','#A6782B',2.6),
+    line('Bell ridge','M -14 91 C -5 95 5 95 14 91',2.2,'#A6782B'),
+    dot('Bell hole',0,98,3.2,3.2,'#6E4E1B'),
+    line('Bell slit','M 0 98 L 0 106',2.2,'#6E4E1B'),
+    dot('Bell shine',-5,86,4,3,'#99FFFFFF'),
+  ]);
+  costume('Nightcap',[
+    shape('Cap body','M -46 -48 C -36 -96 14 -116 62 -92 C 80 -83 92 -66 94 -52 C 74 -62 56 -64 46 -50 Z','#7D89C6','#4A538A',2.8),
+    shape('Cap brim','M -52 -46 C -22 -60 24 -60 52 -46 C 54 -36 46 -32 34 -34 C 12 -39 -12 -39 -34 -34 C -46 -32 -54 -36 -52 -46 Z','#FFFBF7','#8A8296',2.5),
+    dot('Cap pom',95,-48,12,12,'#FFFBF7'),
+    shape('Cap pom ring',ellipse(95,-48,12,12),null,'#8A8296',2.4),
+    dot('Cap star A',-8,-76,4,4,'#FFE382'),
+    dot('Cap star B',26,-84,3.2,3.2,'#FFE382'),
+    dot('Cap star C',56,-74,2.8,2.8,'#FFE382'),
+  ]);
+  costume('Rainhat',[
+    shape('Rain brim','M -76 -43 C -42 -60 42 -60 76 -43 C 68 -30 42 -28 0 -30 C -42 -28 -68 -30 -76 -43 Z','#F8CA46','#A87B22',2.7),
+    shape('Rain dome','M -48 -46 C -46 -88 -24 -100 0 -100 C 24 -100 46 -88 48 -46 Z','#FFDC6B','#A87B22',2.7),
+    shape('Rain band','M -48 -54 C -20 -60 20 -60 48 -54 L 49 -45 C 20 -51 -20 -51 -49 -45 Z','#62B0E8','#3A76A8',2.1),
+    shape('Rain shine','M -30 -86 C -16 -94 4 -94 18 -88 C 2 -88 -14 -86 -30 -86 Z','#66FFFFFF',null),
+    shape('Rain drop','M 28 -78 C 28 -78 35 -68 35 -64 C 35 -60 32 -57 28 -57 C 24 -57 21 -60 21 -64 C 21 -68 28 -78 28 -78 Z','#89CEF8','#3A76A8',1.8),
   ]);
 
   const lickTongue=part('Lick Tongue',-3,-57,[

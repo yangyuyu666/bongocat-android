@@ -59,5 +59,16 @@
                 android:value="User-started floating cat companion displayed over other apps until the user hides it" />
         </service>
 
+        <service
+            android:name=".PetQuickTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_pet"
+            android:label="桌面小猫"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
     </application>
 </manifest>
